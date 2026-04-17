@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forever Bolivia | Panel de Administración</title>
+    
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <script type="module" src="/main.js"></script>
+
+    <style>
+        [x-cloak] { display: none !important; }
+        .swal2-popup { border-radius: 2.5rem !important; font-family: ui-sans-serif, system-ui, sans-serif !important; }
+        .tab-active { border-bottom: 4px solid #eab308; color: #1e293b; font-weight: 900; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen font-sans">
+
+<div class="max-w-6xl mx-auto p-6" x-data="productApp" x-init="init()" x-cloak>
+    
+    <div x-show="isLoading" class="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm" x-transition>
+        <div class="bg-white p-8 rounded-[2rem] shadow-2xl flex flex-col items-center border-4 border-yellow-400">
+            <div class="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-slate-800 mb-4"></div>
+            <p class="text-xs font-black uppercase tracking-widest text-slate-800 italic">Procesando Datos...</p>
+        </div>
+    </div>
+
+    <template x-if="!isLoggedIn">
+        <div class="min-h-[80vh] flex items-center justify-center">
+            <div class="bg-white p-10 rounded-[3rem] shadow-2xl border border-slate-100 w-full max-w-md">
+                <div class="text-center mb-8">
+                    <img src="https://laravel.com/img/logomark.min.svg" class="h-16 w-auto mx-auto mb-4" alt="Logo">
+                    <h1 class="text-3xl font-black text-slate-800 uppercase tracking-tighter">
+                        Forever <span class="text-yellow-500">Bolivia</span>
+                    </h1>
+                </div>
+
+                <div class="space-y-4" x-show="!requiresOTP">
+                    <p class="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Acceso Administrativo</p>
+                    <input type="email" x-model="loginData.email" placeholder="Correo Electrónico" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-yellow-400 font-bold text-slate-700">
+                    <input type="password" x-model="loginData.password" @keyup.enter="login()" placeholder="Contraseña" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-yellow-400 font-bold text-slate-700">
+                    <button @click="login()" class="w-full bg-slate-800 text-white font-black py-4 rounded-2xl uppercase tracking-widest mt-4 shadow-lg hover:bg-slate-900 transition">Entrar al Sistema</button>
+                </div>
+
+                <div class="space-y-4" x-show="requiresOTP">
+                    <div class="bg-yellow-50 p-4 rounded-2xl border border-yellow-100 mb-4">
+                        <p class="text-[10px] font-black text-yellow-700 uppercase tracking-widest text-center">Verificación de 2 Pasos</p>
+                        <p class="text-xs text-center text-yellow-800 mt-1">Ingresa el código enviado a tu sistema</p>
+                    </div>
+                    <input type="text" x-model="loginData.code" maxlength="6" @keyup.enter="verifyOtp()" placeholder="000000" class="w-full p-4 bg-slate-50 border-2 border-yellow-400 rounded-2xl outline-none font-black text-center text-2xl tracking-[0.5em] text-slate-700">
+                    <button @click="verifyOtp()" class="w-full bg-emerald-600 text-white font-black py-4 rounded-2xl uppercase tracking-widest mt-2 shadow-lg hover:bg-emerald-700 transition">Verificar Código 🔓</button>
+                    <button @click="requiresOTP = false" class="w-full text-slate-400 font-bold py-2 text-[10px] uppercase tracking-widest hover:text-slate-600">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template x-if="isLoggedIn">
+        <div>
+            <div class="flex flex-col md:flex-row justify-between items-center mb-6 bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200 gap-4">
+                <div class="flex items-center gap-3">
+                    <img src="https://laravel.com/img/logomark.min.svg" class="h-10 w-auto" alt="Logo">
+                    <div>
+                        <h2 class="font-black text-slate-800 uppercase tracking-tighter leading-none">Gestión Forever</h2>
+                        <span class="text-[10px] font-bold text-yellow-600 uppercase tracking-widest">SISTEMA ADMINISTRATIVO BOLIVIA</span>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-3">
+                    <button @click="registerBiometrics()" class="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase shadow-md hover:bg-blue-700 transition flex items-center gap-2">
+                        <i class="fas fa-user-shield"></i> Configurar Face ID
+                    </button>
+
+                    <button @click="exportToExcel()" class="bg-emerald-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase shadow-md hover:bg-emerald-700 transition">💾 Exportar Excel</button>
+                    <button @click="logout()" class="bg-red-50 text-red-500 px-4 py-3 rounded-2xl font-black text-[10px] uppercase border border-red-100 hover:bg-red-100 transition">Cerrar Sesión</button>
+                </div>
+            </div>
+
+            <div class="flex border-b border-slate-200 mb-8 gap-8 px-4 overflow-x-auto">
+                <button @click="view = 'catalog'; fetchProducts()" :class="view === 'catalog' || view === 'trash' ? 'tab-active' : 'text-slate-400'" class="pb-4 text-xs font-black uppercase tracking-widest transition-all">📦 Inventario</button>
+                <button @click="view = 'sales'; fetchSales()" :class="view === 'sales' ? 'tab-active' : 'text-slate-400'" class="pb-4 text-xs font-black uppercase tracking-widest transition-all">📊 Ventas y Fiscal</button>
+                <button @click="view = 'fbo_admin'; fetchFbos()" :class="view === 'fbo_admin' ? 'tab-active' : 'text-slate-400'" class="pb-4 text-xs font-black uppercase tracking-widest transition-all">👥 Admin FBO</button>
+            </div>
+
+            <div x-show="view === 'catalog' || view === 'trash'">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8" x-show="view === 'catalog'">
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                        <p class="text-[10px] font-black text-slate-400 uppercase">Productos</p>
+                        <h3 class="text-3xl font-black text-slate-800" x-text="stats.total_items">0</h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border-l-4 border-l-red-500 border border-slate-100">
+                        <p class="text-[10px] font-black text-slate-400 uppercase">Stock Crítico</p>
+                        <h3 class="text-3xl font-black text-red-600" x-text="stats.low_stock">0</h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                        <p class="text-[10px] font-black text-slate-400 uppercase">Inversión (BS)</p>
+                        <h3 class="text-3xl font-black text-emerald-600" x-text="stats.total_value">0</h3>
+                    </div>
+                    <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+                        <p class="text-[10px] font-black text-slate-400 uppercase">Total CC</p>
+                        <h3 class="text-3xl font-black text-blue-600" x-text="totalCC">0</h3>
+                    </div>
+                </div>
+
+                <div class="flex flex-col md:flex-row gap-4 mb-6">
+                    <div class="flex-1 relative">
+                        <input type="text" x-model="search" @input.debounce.500ms="fetchProducts()" placeholder="Buscar producto o SKU..." class="w-full pl-12 pr-4 py-4 bg-white border-2 border-slate-100 rounded-2xl outline-none focus:border-yellow-400 font-bold shadow-sm">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center">🔍</div>
+                    </div>
+                    <button @click="showModal = true; editMode = false; resetProductForm()" class="bg-yellow-400 text-slate-900 px-8 py-4 rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-yellow-500 transition">Nuevo Producto</button>
+                    <button @click="toggleTrash()" class="bg-slate-800 text-white px-6 py-4 rounded-2xl font-black uppercase text-xs shadow-lg transition" x-text="view === 'catalog' ? 'Ver Papelera' : 'Volver'"></button>
+                </div>
+
+                <div class="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border border-slate-100">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-800 text-white text-[10px] uppercase tracking-widest">
+                            <tr>
+                                <th class="px-6 py-5 font-black">Detalle</th>
+                                <th class="px-6 py-5 text-center">SKU</th>
+                                <th class="px-6 py-5 text-center">Precio (Bs)</th>
+                                <th class="px-6 py-5 text-center">Stock</th>
+                                <th class="px-6 py-5 text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <template x-for="product in (view === 'catalog' ? products : trashProducts)" :key="product.id">
+                                <tr class="hover:bg-slate-50/50 transition-colors">
+                                    <td class="px-6 py-4 flex items-center gap-4">
+                                        <img :src="product.foto_persona || 'https://via.placeholder.com/150'" class="h-12 w-12 rounded-xl object-cover shadow-sm border-2 border-slate-100">
+                                        <div>
+                                            <p class="font-bold text-slate-800 leading-tight" x-text="product.name"></p>
+                                            <span class="text-[10px] text-blue-500 font-black uppercase tracking-tighter" x-text="product.cc_value + ' CC'"></span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 text-center font-mono text-xs text-slate-500" x-text="product.sku"></td>
+                                    <td class="px-6 py-4 text-center font-black text-slate-700" x-text="product.price_bs"></td>
+                                    <td class="px-6 py-4 text-center">
+                                        <span :class="product.stock < 5 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'" class="px-3 py-1 rounded-full text-[10px] font-black" x-text="product.stock + ' U.'"></span>
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <div class="flex justify-end gap-2" x-show="view === 'catalog'">
+                                            <button @click="sellProduct(product)" class="p-2 bg-emerald-500 text-white rounded-lg shadow-md hover:bg-emerald-600 transition">💰</button>
+                                            <button @click="editProduct(product)" class="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200">✏️</button>
+                                            <button @click="deleteProduct(product.id)" class="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-100">🗑️</button>
+                                        </div>
+                                        <button x-show="view === 'trash'" @click="restoreProduct(product.id)" class="bg-blue-600 text-white px-4 py-1 rounded-lg text-[10px] font-black uppercase shadow-md">Restaurar</button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <template x-if="view === 'sales'">
+                <div class="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 overflow-x-auto">
+                    <h2 class="text-2xl font-black text-slate-800 uppercase italic mb-6">Historial de Ventas Bolivia</h2>
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-400 uppercase text-[10px] font-black tracking-widest border-b border-slate-100">
+                                <th class="p-4">Factura</th>
+                                <th class="p-4">Producto</th>
+                                <th class="p-4 text-center">Cant.</th>
+                                <th class="p-4">Total (Bs)</th>
+                                <th class="p-4 text-red-400">IVA (13%)</th>
+                                <th class="p-4">CC</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-50">
+                            <template x-for="sale in sales" :key="sale.id">
+                                <tr class="hover:bg-slate-50/50 transition">
+                                    <td class="p-4 font-mono text-xs font-bold text-slate-500" x-text="sale.nro_factura"></td>
+                                    <td class="p-4 font-bold text-slate-700 text-sm" x-text="sale.product?.name"></td>
+                                    <td class="p-4 text-center font-bold" x-text="sale.cantidad"></td>
+                                    <td class="p-4 font-black text-emerald-600" x-text="'Bs. ' + sale.monto_total"></td>
+                                    <td class="p-4 text-red-500 font-bold text-xs" x-text="'Bs. ' + sale.monto_iva"></td>
+                                    <td class="p-4 font-black text-blue-600" x-text="sale.total_cc"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </template>
+
+            <template x-if="view === 'fbo_admin'">
+                <div class="space-y-8">
+                    <div class="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100">
+                        <div class="flex items-center gap-4 mb-8 border-b-2 border-slate-50 pb-4">
+                            <div class="bg-slate-800 text-white p-3 rounded-2xl">👤</div>
+                            <h2 class="text-2xl font-black text-slate-800 uppercase italic">Registro de Nuevo FBO</h2>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-2">ID FBO (Oficial)</label>
+                                <input type="text" x-model="fboData.fbo_id" placeholder="Ej: 591000123" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-yellow-400 font-bold text-slate-700">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-2">Nombre Completo</label>
+                                <input type="text" x-model="fboData.name" placeholder="Nombres y Apellidos" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-yellow-400 font-bold text-slate-700">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-2">Descuento (%)</label>
+                                <input type="number" x-model="fboData.discount_rate" placeholder="5, 30, 35..." class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-yellow-400 font-bold text-slate-700">
+                            </div>
+                        </div>
+                        <button @click="saveFbo()" class="mt-8 w-full bg-slate-800 text-white py-5 rounded-[2rem] font-black uppercase tracking-widest text-xs shadow-xl hover:bg-slate-900 transition active:scale-95">Registrar Distribuidor en Sistema</button>
+                    </div>
+
+                    <div class="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100">
+                        <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.3em] mb-6 px-4 italic">Lista de Distribuidores Activos</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <template x-for="fbo in fbos" :key="fbo.id">
+                                <div class="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex justify-between items-center">
+                                    <div>
+                                        <p class="font-black text-slate-800" x-text="fbo.name"></p>
+                                        <p class="text-[10px] text-slate-400 font-bold font-mono uppercase" x-text="'ID: ' + fbo.fbo_id"></p>
+                                    </div>
+                                    <div class="bg-yellow-100 text-yellow-700 px-4 py-1 rounded-full text-[10px] font-black uppercase" x-text="fbo.discount_rate + '% DESC.'"></div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </template>
+
+    <div x-show="showModal" class="fixed inset-0 z-[1001] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" x-cloak x-transition>
+        <div class="bg-white rounded-[3rem] shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100" @click.away="showModal = false">
+            <div class="p-8">
+                <h2 class="text-2xl font-black text-slate-800 uppercase tracking-tighter mb-6" x-text="editMode ? 'Actualizar Producto' : 'Nuevo Registro'"></h2>
+                <div class="space-y-4 text-left">
+                    <div>
+                        <label class="text-[10px] font-black text-slate-400 uppercase block mb-1 ml-2">Nombre del Producto</label>
+                        <input type="text" x-model="productData.name" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-yellow-400 font-bold text-slate-700">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-[10px] font-black text-slate-400 uppercase block mb-1 ml-2">SKU</label>
+                            <input type="text" x-model="productData.sku" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-black text-slate-400 uppercase block mb-1 ml-2">Stock</label>
+                            <input type="number" x-model="productData.stock" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-[10px] font-black text-slate-400 uppercase block mb-1 ml-2">Precio (Bs.)</label>
+                            <input type="number" x-model="productData.price_bs" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold text-emerald-600">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-black text-slate-400 uppercase block mb-1 ml-2">Valor CC</label>
+                            <input type="number" step="0.001" x-model="productData.cc_value" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold text-blue-600">
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 mb-8">
+                        <div class="flex items-center gap-4 mb-6">
+                            <div class="bg-yellow-400 p-3 rounded-2xl">📸</div>
+                            <h2 class="text-2xl font-black text-slate-800 uppercase italic">Captura de Credencial</h2>
+                        </div>
+                    
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                            <div class="relative bg-slate-100 rounded-[2rem] overflow-hidden aspect-video border-4 border-slate-200 shadow-inner">
+                                <video id="video" autoplay class="w-full h-full object-cover"></video>
+                                <div class="absolute bottom-4 left-0 right-0 text-center">
+                                    <button @click="tomarFoto()" class="bg-white/90 backdrop-blur text-slate-900 px-6 py-3 rounded-2xl font-black uppercase text-[10px] shadow-xl hover:bg-yellow-400 transition">
+                                        📸 Capturar Ahora
+                                    </button>
+                                </div>
+                            </div>
+                    
+                            <div class="text-center">
+                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Resultado de Credencial</p>
+                                <div class="w-48 h-48 mx-auto bg-slate-50 rounded-full border-4 border-yellow-400 overflow-hidden shadow-2xl">
+                                    <img :src="productData.foto_persona || 'https://via.placeholder.com/150'" class="w-full h-full object-cover">
+                                </div>
+                                <p class="mt-4 text-xs font-bold text-slate-500" x-text="productData.name || 'Nombre del Usuario'"></p>
+                            </div>
+                        </div>
+                        
+                        <canvas id="canvas" class="hidden"></canvas>
+                    </div>
+                </div>
+                <div class="flex gap-4 mt-8">
+                    <button @click="showModal = false" class="flex-1 py-4 text-slate-400 font-black uppercase text-[10px] tracking-widest hover:text-slate-600 transition">Cancelar</button>
+                    <button @click="saveProduct()" class="flex-1 bg-yellow-400 text-slate-900 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-yellow-500 transition">Guardar Cambios</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
