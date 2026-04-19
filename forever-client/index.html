@@ -10,13 +10,26 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    
+    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
     <script type="module" src="/main.js"></script>
 
     <style>
         [x-cloak] { display: none !important; }
         .swal2-popup { border-radius: 2.5rem !important; font-family: ui-sans-serif, system-ui, sans-serif !important; }
         .tab-active { border-bottom: 4px solid #eab308; color: #1e293b; font-weight: 900; }
+        
+        #security-camera-container {
+            position: relative;
+            width: 100%;
+            max-width: 250px;
+            border-radius: 1rem;
+            overflow: hidden;
+            border: 3px solid #eab308;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            background-color: #0f172a;
+        }
+        #security-video { width: 100%; display: block; object-fit: cover; }
+        #security-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen font-sans">
@@ -32,7 +45,7 @@
 
     <template x-if="!isLoggedIn">
         <div class="min-h-[80vh] flex items-center justify-center">
-            <div class="bg-white p-10 rounded-[3rem] shadow-2xl border border-slate-100 w-full max-w-md">
+            <div class="bg-white p-10 rounded-[3rem] shadow-2xl border border-slate-100 w-full max-w-md relative overflow-hidden">
                 <div class="text-center mb-8">
                     <img src="https://laravel.com/img/logomark.min.svg" class="h-16 w-auto mx-auto mb-4" alt="Logo">
                     <h1 class="text-3xl font-black text-slate-800 uppercase tracking-tighter">
@@ -40,8 +53,16 @@
                     </h1>
                 </div>
 
+                <div x-show="faceLoginActivo" class="mb-8 flex flex-col items-center justify-center" style="display: none;">
+                    <p class="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-3 animate-pulse">Escaneando Rostro...</p>
+                    <div class="relative w-32 h-32 rounded-full overflow-hidden border-4 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)]">
+                        <video id="login-video" autoplay muted playsinline class="w-full h-full object-cover"></video>
+                        <canvas id="login-canvas" class="absolute top-0 left-0 w-full h-full z-10"></canvas>
+                    </div>
+                </div>
+
                 <div class="space-y-4" x-show="!requiresOTP">
-                    <p class="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Acceso Administrativo</p>
+                    <p class="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4" x-text="faceLoginActivo ? 'O usa tu contraseña de respaldo' : 'Acceso Administrativo'"></p>
                     <input type="email" x-model="loginData.email" placeholder="Correo Electrónico" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-yellow-400 font-bold text-slate-700">
                     <input type="password" x-model="loginData.password" @keyup.enter="login()" placeholder="Contraseña" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-yellow-400 font-bold text-slate-700">
                     <button @click="login()" class="w-full bg-slate-800 text-white font-black py-4 rounded-2xl uppercase tracking-widest mt-4 shadow-lg hover:bg-slate-900 transition">Entrar al Sistema</button>
@@ -72,12 +93,41 @@
                 </div>
                 
                 <div class="flex items-center gap-3">
-                    <button @click="registerBiometrics()" class="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase shadow-md hover:bg-blue-700 transition flex items-center gap-2">
-                        <i class="fas fa-user-shield"></i> Configurar Face ID
-                    </button>
-
-                    <button @click="exportToExcel()" class="bg-emerald-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase shadow-md hover:bg-emerald-700 transition">💾 Exportar Excel</button>
+                    <button @click="registerBiometrics()" class="bg-blue-600 text-white px-4 py-3 rounded-2xl font-black text-[10px] uppercase shadow-md hover:bg-blue-700 transition flex items-center gap-2">
+                        <i class="fas fa-user-shield"></i> Llavero Biométrico
+                    </button> 
+                    <button @click="exportToExcel()" class="bg-emerald-600 text-white px-4 py-3 rounded-2xl font-black text-[10px] uppercase shadow-md hover:bg-emerald-700 transition">💾 Excel</button>
+                    <button @click="lockScreen()" class="bg-amber-50 text-amber-600 px-4 py-3 rounded-2xl font-black text-[10px] uppercase border border-amber-100 hover:bg-amber-100 transition"><i class="fas fa-lock"></i> Bloquear</button>
                     <button @click="logout()" class="bg-red-50 text-red-500 px-4 py-3 rounded-2xl font-black text-[10px] uppercase border border-red-100 hover:bg-red-100 transition">Cerrar Sesión</button>
+                </div>
+            </div>
+
+            <div class="mb-8 bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200 flex flex-col md:flex-row items-center gap-6">
+                <div id="security-camera-container">
+                    <video id="security-video" autoplay muted playsinline></video>
+                    <canvas id="security-canvas"></canvas>
+                </div>
+                <div class="flex-1">
+                    <h3 class="text-xl font-black text-slate-800 uppercase italic">Vigilancia de Operador Activo</h3>
+                    <p class="text-sm font-bold mb-4" 
+                       :class="faceApp.rostroDetectado ? 'text-emerald-500' : 'text-slate-500'"
+                       x-text="faceApp.cargando ? 'Encendiendo motor de Inteligencia Artificial...' : (faceApp.rostroDetectado ? 'Identidad verificada en tiempo real.' : 'Esperando rostro del operador...')">
+                    </p>
+                    
+                    <div id="face-alert-container">
+                        <div x-show="faceApp.cargando" class="inline-flex items-center gap-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-xl border border-blue-200 font-black uppercase text-xs shadow-inner">
+                            <span class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+                            Iniciando Sensor...
+                        </div>
+                        <div x-show="!faceApp.cargando && faceApp.rostroDetectado" class="inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl border border-emerald-200 font-black uppercase text-xs shadow-inner" style="display: none;">
+                            <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                            Operador en Puesto - Caja Desbloqueada
+                        </div>
+                        <div x-show="!faceApp.cargando && !faceApp.rostroDetectado" class="inline-flex items-center gap-2 bg-red-50 text-red-700 px-4 py-2 rounded-xl border border-red-200 font-black uppercase text-xs shadow-inner" style="display: none;">
+                            <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                            Operador Ausente - Caja Bloqueada
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -85,6 +135,7 @@
                 <button @click="view = 'catalog'; fetchProducts()" :class="view === 'catalog' || view === 'trash' ? 'tab-active' : 'text-slate-400'" class="pb-4 text-xs font-black uppercase tracking-widest transition-all">📦 Inventario</button>
                 <button @click="view = 'sales'; fetchSales()" :class="view === 'sales' ? 'tab-active' : 'text-slate-400'" class="pb-4 text-xs font-black uppercase tracking-widest transition-all">📊 Ventas y Fiscal</button>
                 <button @click="view = 'fbo_admin'; fetchFbos()" :class="view === 'fbo_admin' ? 'tab-active' : 'text-slate-400'" class="pb-4 text-xs font-black uppercase tracking-widest transition-all">👥 Admin FBO</button>
+                <button @click="view = 'profile'" :class="view === 'profile' ? 'tab-active text-blue-600' : 'text-slate-400'" class="pb-4 text-xs font-black uppercase tracking-widest transition-all">🔐 Perfil Admin</button>
             </div>
 
             <div x-show="view === 'catalog' || view === 'trash'">
@@ -112,7 +163,7 @@
                         <input type="text" x-model="search" @input.debounce.500ms="fetchProducts()" placeholder="Buscar producto o SKU..." class="w-full pl-12 pr-4 py-4 bg-white border-2 border-slate-100 rounded-2xl outline-none focus:border-yellow-400 font-bold shadow-sm">
                         <div class="absolute inset-y-0 left-0 pl-4 flex items-center">🔍</div>
                     </div>
-                    <button @click="showModal = true; editMode = false; resetProductForm()" class="bg-yellow-400 text-slate-900 px-8 py-4 rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-yellow-500 transition">Nuevo Producto</button>
+                    <button @click="showModal = true; editMode = false; resetProductForm();" class="bg-yellow-400 text-slate-900 px-8 py-4 rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-yellow-500 transition">Nuevo Producto</button>
                     <button @click="toggleTrash()" class="bg-slate-800 text-white px-6 py-4 rounded-2xl font-black uppercase text-xs shadow-lg transition" x-text="view === 'catalog' ? 'Ver Papelera' : 'Volver'"></button>
                 </div>
 
@@ -195,18 +246,9 @@
                             <h2 class="text-2xl font-black text-slate-800 uppercase italic">Registro de Nuevo FBO</h2>
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div>
-                                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-2">ID FBO (Oficial)</label>
-                                <input type="text" x-model="fboData.fbo_id" placeholder="Ej: 591000123" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-yellow-400 font-bold text-slate-700">
-                            </div>
-                            <div>
-                                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-2">Nombre Completo</label>
-                                <input type="text" x-model="fboData.name" placeholder="Nombres y Apellidos" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-yellow-400 font-bold text-slate-700">
-                            </div>
-                            <div>
-                                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-2">Descuento (%)</label>
-                                <input type="number" x-model="fboData.discount_rate" placeholder="5, 30, 35..." class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-yellow-400 font-bold text-slate-700">
-                            </div>
+                            <input type="text" x-model="fboData.fbo_id" placeholder="ID FBO (Ej: 591000123)" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold text-slate-700">
+                            <input type="text" x-model="fboData.name" placeholder="Nombres y Apellidos" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold text-slate-700">
+                            <input type="number" x-model="fboData.discount_rate" placeholder="Descuento (%)" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold text-slate-700">
                         </div>
                         <button @click="saveFbo()" class="mt-8 w-full bg-slate-800 text-white py-5 rounded-[2rem] font-black uppercase tracking-widest text-xs shadow-xl hover:bg-slate-900 transition active:scale-95">Registrar Distribuidor en Sistema</button>
                     </div>
@@ -227,18 +269,59 @@
                     </div>
                 </div>
             </template>
+
+            <template x-if="view === 'profile'">
+                <div class="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100">
+                    <div class="flex items-center gap-4 mb-8 border-b-2 border-slate-50 pb-4">
+                        <div class="bg-blue-600 text-white p-3 rounded-2xl text-2xl">🤖</div>
+                        <div>
+                            <h2 class="text-2xl font-black text-slate-800 uppercase italic leading-none">Seguridad Facial (Face ID)</h2>
+                            <p class="text-xs text-slate-400 font-bold mt-1">Desbloquea el sistema automáticamente usando tu rostro</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
+                        <div class="space-y-6">
+                            <div class="p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                                <h3 class="font-black text-slate-800 mb-2 uppercase text-sm">Estado del Login Facial</h3>
+                                <p class="text-xs text-slate-500 mb-4">Si está activo, la cámara se encenderá en la pantalla de inicio y saltará el código de seguridad automáticamente si te reconoce.</p>
+                                
+                                <button @click="toggleFaceLogin()" 
+                                        :class="faceLoginActivo ? 'bg-emerald-500' : 'bg-slate-300'"
+                                        class="relative inline-flex h-8 w-16 items-center rounded-full transition-colors shadow-inner focus:outline-none">
+                                    <span :class="faceLoginActivo ? 'translate-x-9' : 'translate-x-1'"
+                                          class="inline-block h-6 w-6 transform rounded-full bg-white transition shadow-md"></span>
+                                </button>
+                                <span class="ml-3 font-black text-sm uppercase" :class="faceLoginActivo ? 'text-emerald-600' : 'text-slate-400'" x-text="faceLoginActivo ? 'ACTIVADO' : 'DESACTIVADO'"></span>
+                            </div>
+
+                            <button @click="escanearRostroAdmin()" class="w-full bg-blue-600 text-white py-5 rounded-[2rem] font-black uppercase tracking-widest text-xs shadow-xl hover:bg-blue-700 transition">
+                                <i class="fas fa-camera"></i> Escanear mi rostro ahora
+                            </button>
+                        </div>
+
+                        <div class="text-center bg-slate-800 p-8 rounded-[3rem] shadow-2xl">
+                            <p class="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em] mb-6">Huella Facial Guardada</p>
+                            <div class="w-48 h-48 mx-auto bg-slate-900 rounded-full border-4 border-blue-500 overflow-hidden shadow-[0_0_30px_rgba(59,130,246,0.5)] flex items-center justify-center">
+                                <template x-if="rostroAdminUrl"><img :src="rostroAdminUrl" class="w-full h-full object-cover"></template>
+                                <template x-if="!rostroAdminUrl"><i class="fas fa-user-secret text-6xl text-slate-700"></i></template>
+                            </div>
+                            <p class="mt-6 text-xs font-bold text-slate-300" x-text="rostroAdminUrl ? 'Rostro registrado.' : 'No registrado.'"></p>
+                        </div>
+                    </div>
+                </div>
+            </template>
         </div>
     </template>
 
     <div x-show="showModal" class="fixed inset-0 z-[1001] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" x-cloak x-transition>
-        <div class="bg-white rounded-[3rem] shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100" @click.away="showModal = false">
+        <div class="bg-white rounded-[3rem] shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100" @click.away="showModal = false;">
             <div class="p-8">
                 <h2 class="text-2xl font-black text-slate-800 uppercase tracking-tighter mb-6" x-text="editMode ? 'Actualizar Producto' : 'Nuevo Registro'"></h2>
                 <div class="space-y-4 text-left">
-                    <div>
-                        <label class="text-[10px] font-black text-slate-400 uppercase block mb-1 ml-2">Nombre del Producto</label>
-                        <input type="text" x-model="productData.name" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-yellow-400 font-bold text-slate-700">
-                    </div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase block mb-1 ml-2">Nombre del Producto</label>
+                    <input type="text" x-model="productData.name" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold text-slate-700">
+                    
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="text-[10px] font-black text-slate-400 uppercase block mb-1 ml-2">SKU</label>
@@ -262,34 +345,23 @@
                     
                     <div class="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 mb-8">
                         <div class="flex items-center gap-4 mb-6">
-                            <div class="bg-yellow-400 p-3 rounded-2xl">📸</div>
-                            <h2 class="text-2xl font-black text-slate-800 uppercase italic">Captura de Credencial</h2>
+                            <div class="bg-yellow-400 p-3 rounded-2xl">🖼️</div>
+                            <h2 class="text-2xl font-black text-slate-800 uppercase italic">Imagen</h2>
                         </div>
-                    
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-                            <div class="relative bg-slate-100 rounded-[2rem] overflow-hidden aspect-video border-4 border-slate-200 shadow-inner">
-                                <video id="video" autoplay class="w-full h-full object-cover"></video>
-                                <div class="absolute bottom-4 left-0 right-0 text-center">
-                                    <button @click="tomarFoto()" class="bg-white/90 backdrop-blur text-slate-900 px-6 py-3 rounded-2xl font-black uppercase text-[10px] shadow-xl hover:bg-yellow-400 transition">
-                                        📸 Capturar Ahora
-                                    </button>
-                                </div>
+                            <div class="relative bg-slate-100 rounded-[2rem] overflow-hidden aspect-video border-4 border-slate-200 shadow-inner flex items-center justify-center p-4">
+                                <input type="file" accept="image/*" @change="handleImageUpload" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:font-bold file:bg-yellow-50 file:text-yellow-700">
                             </div>
-                    
                             <div class="text-center">
-                                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Resultado de Credencial</p>
-                                <div class="w-48 h-48 mx-auto bg-slate-50 rounded-full border-4 border-yellow-400 overflow-hidden shadow-2xl">
+                                <div class="w-32 h-32 mx-auto bg-slate-50 rounded-full border-4 border-yellow-400 overflow-hidden shadow-2xl">
                                     <img :src="productData.foto_persona || 'https://via.placeholder.com/150'" class="w-full h-full object-cover">
                                 </div>
-                                <p class="mt-4 text-xs font-bold text-slate-500" x-text="productData.name || 'Nombre del Usuario'"></p>
                             </div>
                         </div>
-                        
-                        <canvas id="canvas" class="hidden"></canvas>
                     </div>
                 </div>
                 <div class="flex gap-4 mt-8">
-                    <button @click="showModal = false" class="flex-1 py-4 text-slate-400 font-black uppercase text-[10px] tracking-widest hover:text-slate-600 transition">Cancelar</button>
+                    <button @click="showModal = false;" class="flex-1 py-4 text-slate-400 font-black uppercase text-[10px] tracking-widest transition">Cancelar</button>
                     <button @click="saveProduct()" class="flex-1 bg-yellow-400 text-slate-900 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg hover:bg-yellow-500 transition">Guardar Cambios</button>
                 </div>
             </div>
