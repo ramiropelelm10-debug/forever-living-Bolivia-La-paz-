@@ -3,7 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-// 1. Importación de tus controladores de gestión
+// --- IMPORTACIONES DE CONTROLADORES (ESTO ELIMINA LOS ERRORES) ---
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\FboController;
@@ -18,69 +18,63 @@ use LaravelWebauthn\Http\Controllers\WebauthnKeyController;
 |--------------------------------------------------------------------------
 */
 
-// --- RUTAS PÚBLICAS ---
+// --- RUTAS PÚBLICAS (Sin necesidad de estar logueado) ---
 
-// Login inicial (Email y Password)
+// Login tradicional
 Route::post('/login', [AuthController::class, 'login']);
 
-// Verificación de código OTP (2FA)
+// Verificación de código OTP (Seguridad de 2 pasos)
 Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
 
-/**
- * Puente para Login Biométrico
- */
-Route::post('/webauthn/get-token', function (Request $request) {
-    /** @var \App\Models\User $user */
-    $user = auth('sanctum')->user();
-    
-    if (!$user) {
-        return response()->json(['message' => 'No autenticado'], 401);
-    }
 
-    return response()->json([
-        'token' => $user->createToken('biometric-login')->plainTextToken,
-        'user' => $user
-    ]);
-});
-
-
-// --- RUTAS PROTEGIDAS (Sanctum) ---
+// --- RUTAS PROTEGIDAS (Requieren Token de Sanctum) ---
 Route::middleware('auth:sanctum')->group(function () {
     
-    // Perfil del usuario
+    // Obtener los datos del usuario conectado
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
 
     /**
-     * REGISTRO DE HUELLA / FACE ID
+     * SEGURIDAD BIOMÉTRICA (Llavero / Face ID)
      */
+    // Generar opciones para registrar huella/rostro
     Route::post('/webauthn/keys/options', [WebauthnKeyController::class, 'create'])
         ->middleware(\App\Http\Middleware\WebauthnEmailMiddleware::class);
         
-    // USANDO TU CONTROLADOR PERSONALIZADO
+    // Registro final de la llave biométrica
     Route::post('/webauthn/keys', [AuthController::class, 'register']);
 
-    // --- BIOMETRÍA Y PERFIL ---
+    // Puente para obtener token rápido mediante Biometría
+    Route::post('/webauthn/get-token', function (Request $request) {
+        $user = $request->user();
+        return response()->json([
+            'token' => $user->createToken('biometric-login')->plainTextToken,
+            'user' => $user
+        ]);
+    });
+
+    // Ajustes de perfil y biometría
     Route::post('/user/toggle-biometrics', [AuthController::class, 'toggleBiometrics']);
-    
-    // NUEVA RUTA: Para guardar la foto de la credencial capturada con la cámara
     Route::post('/user/update-photo', [AuthController::class, 'updateProfile']);
 
-    // --- MÓDULOS DE GESTIÓN FOREVER ---
+    /**
+     * MÓDULOS DE GESTIÓN FOREVER (CRUD)
+     */
     
-    // Gestión de Productos
+    // Gestión de Productos: Control de stock y precios
     Route::apiResource('products', ProductController::class);
     
-    // Gestión de FBOs
+    // Gestión de FBOs: Administra tus distribuidores y sus descuentos
     Route::apiResource('fbos', FboController::class);
     
-    // Gestión de Ventas
+    // GESTIÓN DE VENTAS: El motor que conecta tu tienda con PostgreSQL
+    // Aquí es donde se procesa el botón "Procesar Venta" y se guardan las facturas
     Route::apiResource('sales', SaleController::class);
     
-    // Cálculo de impuestos
+    // Cálculo previo de impuestos para Bolivia (13% IVA, 3% IT)
     Route::post('/sales/calculate-taxes', [SaleController::class, 'calculateTaxes']);
 
-    // Logout
+    // Logout: Elimina el token de acceso actual
     Route::post('/logout', [AuthController::class, 'logout']);
 });

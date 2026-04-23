@@ -18,131 +18,173 @@ window.api = api;
 
 document.addEventListener('alpine:init', () => {
     Alpine.data('productApp', () => ({
-        isLoggedIn: false,
-        isLoading: false,
-        requiresOTP: false, 
-        view: 'catalog', 
-        showModal: false,
-        editMode: false,
-        search: '',
+        isLoggedIn: false, isLoading: false, requiresOTP: false, 
+        view: 'catalog', showModal: false, editMode: false, search: '',
         loginData: { email: '', password: '', code: '' }, 
         productData: { id: null, name: '', sku: '', stock: 0, price_bs: 0, cc_value: 0, foto_persona: '' },
         fboData: { fbo_id: '', name: '', discount_rate: 0 },
         fbos: [], products: [], trashProducts: [], sales: [], 
         stats: { total_items: 0, low_stock: 0, total_value: 0 }, totalCC: 0,
-
-        faceApp: { cargando: true, rostroDetectado: false },
-        faceInterval: null,
+        faceApp: { cargando: true }, // Simplificado: ya no necesitamos rostroDetectado para vigilancia
         loginInterval: null, 
-
+        currentStream: null, 
         faceLoginActivo: localStorage.getItem('faceLoginActivo') === 'true',
         rostroAdminUrl: localStorage.getItem('rostroAdminUrl') || null,
 
         async init() {
             axios.defaults.headers.common['Accept'] = 'application/json';
+            
+            try {
+                await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+                this.faceApp.cargando = false;
+            } catch (e) { console.error("Error cargando modelos IA", e); }
+
             const token = localStorage.getItem('auth_token');
+            const backupToken = localStorage.getItem('face_token_backup'); 
             
             if (token && token !== 'undefined') {
                 if (this.faceLoginActivo) {
-                    // MODO BLOQUEO: Hay sesión pero pasamos por el filtro facial primero
                     this.isLoggedIn = false;
-                    setTimeout(() => { this.iniciarCamaraLogin(); }, 500);
+                    setTimeout(() => { this.iniciarCamaraLogin(); }, 800);
                 } else {
                     this.entrarAlSistemaDirecto();
                 }
             } else {
-                localStorage.removeItem('auth_token');
+                if (this.faceLoginActivo && backupToken) {
+                    this.isLoggedIn = false;
+                    setTimeout(() => { this.iniciarCamaraLogin(); }, 800);
+                } else {
+                    localStorage.removeItem('auth_token');
+                    this.faceLoginActivo = false; 
+                }
             }
         },
 
         async entrarAlSistemaDirecto() {
             this.isLoggedIn = true;
-            await Promise.all([this.fetchProducts(), this.fetchFbos(), this.fetchSales()]);
-            setTimeout(() => { this.inicializarFaceDetection(); }, 500);
+            // Cargamos datos, pero YA NO encendemos la cámara de vigilancia
+            await Promise.all([
+                this.fetchProducts().catch(e => console.error("Error en productos", e)),
+                this.fetchFbos().catch(e => console.error("Error en FBOs", e)),
+                this.fetchSales().catch(e => console.error("Error en Sales", e))
+            ]);
         },
 
-        iniciarCamaraLogin() {
-            faceapi.nets.tinyFaceDetector.loadFromUri('/models').then(() => {
-                const video = document.getElementById('login-video');
-                const canvas = document.getElementById('login-canvas');
-                if (!video || !canvas) return;
+        // --- CÁMARA DE LOGIN (SE MANTIENE) ---
+        async iniciarCamaraLogin() {
+            const video = document.getElementById('login-video');
+            const canvas = document.getElementById('login-canvas');
+            
+            if (!video || !canvas) {
+                setTimeout(() => this.iniciarCamaraLogin(), 500);
+                return;
+            }
 
-                navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
-                    .then(stream => {
-                        video.srcObject = stream;
-                        video.onplaying = () => {
-                            const displaySize = { width: video.clientWidth, height: video.clientHeight };
-                            faceapi.matchDimensions(canvas, displaySize);
+            if (this.currentStream) {
+                this.currentStream.getTracks().forEach(track => track.stop());
+            }
 
-                            this.loginInterval = setInterval(async () => {
-                                if(video.paused || video.ended) return;
-                                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
-                                
-                                if (detections.length > 0) {
-                                    clearInterval(this.loginInterval); 
-                                    video.srcObject.getTracks().forEach(track => track.stop()); 
-                                    
-                                    Swal.fire({
-                                        title: '¡Rostro Identificado!', text: 'Accediendo al sistema...', icon: 'success', 
-                                        timer: 1000, showConfirmButton: false
-                                    });
-                                    
-                                    setTimeout(() => { this.entrarAlSistemaDirecto(); }, 1000);
-                                }
-                                const resizedDetections = faceapi.resizeResults(detections, displaySize);
-                                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-                                faceapi.draw.drawDetections(canvas, resizedDetections);
-                            }, 400);
-                        };
-                    });
-            });
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, 
+                    audio: false 
+                });
+                
+                this.currentStream = stream;
+                video.srcObject = stream;
+                video.muted = true;
+                video.setAttribute('playsinline', '');
+                
+                await video.play().catch(e => console.warn("Play interrumpido"));
+
+                const displaySize = { width: video.clientWidth, height: video.clientHeight };
+                faceapi.matchDimensions(canvas, displaySize);
+
+                if (this.loginInterval) clearInterval(this.loginInterval);
+                this.loginInterval = setInterval(async () => {
+                    if(video.paused || video.ended) return;
+                    
+                    const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
+                    
+                    if (detections.length > 0) {
+                        clearInterval(this.loginInterval); 
+                        stream.getTracks().forEach(track => track.stop());
+                        this.currentStream = null;
+                        
+                        const backup = localStorage.getItem('face_token_backup');
+                        if(backup) localStorage.setItem('auth_token', backup);
+                        
+                        Swal.fire({
+                            title: '¡Rostro Identificado!', 
+                            text: 'Bienvenido a Forever Living', 
+                            icon: 'success', 
+                            timer: 1500, 
+                            showConfirmButton: false
+                        });
+                        
+                        setTimeout(() => { this.entrarAlSistemaDirecto(); }, 1000);
+                    }
+                    
+                    const res = faceapi.resizeResults(detections, displaySize);
+                    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                    faceapi.draw.drawDetections(canvas, res);
+                }, 400);
+
+            } catch (err) { console.error("Error de cámara login:", err); }
         },
 
         lockScreen() { 
             if(!this.faceLoginActivo) {
-                Swal.fire('Atención', 'Para usar el bloqueo rápido, primero debes activar la Seguridad Facial en el Perfil Admin.', 'warning');
+                Swal.fire('Atención', 'Activa la Seguridad Facial en el Perfil Admin primero.', 'warning');
                 return;
             }
             location.reload(); 
         },
-
+        
         logout() { 
-            // Limpiamos los intervalos y las cámaras
-            if (this.faceInterval) clearInterval(this.faceInterval);
             if (this.loginInterval) clearInterval(this.loginInterval);
+            if (this.currentStream) this.currentStream.getTracks().forEach(t => t.stop());
             
-            const video1 = document.getElementById('security-video');
-            if (video1 && video1.srcObject) video1.srcObject.getTracks().forEach(t => t.stop());
-            
-            const video2 = document.getElementById('login-video');
-            if (video2 && video2.srcObject) video2.srcObject.getTracks().forEach(t => t.stop());
-
-            // BORRAMOS EL TOKEN DE ACCESO
             localStorage.removeItem('auth_token'); 
             location.reload(); 
         },
 
-        toggleFaceLogin() {
-            if (!this.rostroAdminUrl) {
-                Swal.fire('Atención', 'Primero escanea tu rostro en el botón de abajo.', 'warning');
-                return;
-            }
-            this.faceLoginActivo = !this.faceLoginActivo;
-            localStorage.setItem('faceLoginActivo', this.faceLoginActivo);
-            Swal.fire('Configuración', this.faceLoginActivo ? 'Bloqueo facial activado.' : 'Bloqueo facial desactivado.', 'success');
+        // --- GESTIÓN DE PRODUCTOS ---
+        handleImageUpload(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+            reader.onload = (e) => { this.productData.foto_persona = e.target.result; };
+            if (file) reader.readAsDataURL(file);
         },
 
-        escanearRostroAdmin() {
-            if(!this.faceApp.rostroDetectado) return Swal.fire('Error', 'Colócate frente a la cámara de vigilancia.', 'error');
-            const video = document.getElementById('security-video');
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-            this.rostroAdminUrl = canvas.toDataURL('image/jpeg');
-            localStorage.setItem('rostroAdminUrl', this.rostroAdminUrl);
-            Swal.fire('Éxito', 'Rostro guardado correctamente.', 'success');
+        async saveProduct() {
+            this.isLoading = true;
+            try {
+                const payload = {
+                    ...this.productData,
+                    stock: parseInt(this.productData.stock) || 0,
+                    price_bs: parseFloat(this.productData.price_bs) || 0,
+                    cc_value: parseFloat(this.productData.cc_value) || 0
+                };
+                if (this.editMode) await axios.post(`/products/${this.productData.id}`, { ...payload, _method: 'PUT' });
+                else await axios.post('/products', payload);
+                this.showModal = false;
+                await this.fetchProducts();
+                this.resetProductForm();
+                Swal.fire('¡Éxito!', 'Producto guardado.', 'success');
+            } catch (e) { Swal.fire('Error', 'No se pudo guardar.', 'error'); } 
+            finally { this.isLoading = false; }
         },
 
+        async fetchProducts() {
+            try {
+                const res = await axios.get('/products', { params: { search: this.search } });
+                this.products = res.data;
+                this.updateStats();
+            } catch (e) { if(e.response?.status === 401) this.logout(); }
+        },
+
+        // --- AUTENTICACIÓN MANUAL ---
         async login() {
             this.isLoading = true;
             try {
@@ -156,6 +198,7 @@ document.addEventListener('alpine:init', () => {
                 if (token) {
                     localStorage.setItem('auth_token', token);
                     localStorage.setItem('user_email', res.data.user.email); 
+                    if(this.faceLoginActivo) localStorage.setItem('face_token_backup', token);
                     this.entrarAlSistemaDirecto();
                 }
             } catch (e) { Swal.fire('Error', 'Credenciales inválidas', 'error'); 
@@ -170,68 +213,47 @@ document.addEventListener('alpine:init', () => {
                     localStorage.setItem('auth_token', res.data.token);
                     localStorage.setItem('user_email', res.data.user.email);
                     this.requiresOTP = false;
+                    if(this.faceLoginActivo) localStorage.setItem('face_token_backup', res.data.token);
                     this.entrarAlSistemaDirecto();
                 }
             } catch (e) { Swal.fire('Error', 'Código incorrecto', 'error');
             } finally { this.isLoading = false; }
         },
 
-        async registerBiometrics() {
-            try {
-                this.isLoading = true;
-                await window.api.registerBiometrics();
-                Swal.fire('¡Listo!', 'Llavero biométrico vinculado.', 'success');
-            } catch (err) { Swal.fire('Error', 'No se pudo vincular.', 'error'); } 
-            finally { this.isLoading = false; }
+        toggleFaceLogin() {
+            this.faceLoginActivo = !this.faceLoginActivo;
+            localStorage.setItem('faceLoginActivo', this.faceLoginActivo);
+            
+            if(this.faceLoginActivo) {
+                localStorage.setItem('face_token_backup', localStorage.getItem('auth_token'));
+            } else {
+                localStorage.removeItem('face_token_backup');
+            }
         },
 
-        async fetchProducts() {
-            const endpoint = this.view === 'catalog' ? '/products' : '/products/trash';
-            try {
-                const res = await axios.get(endpoint, { params: { search: this.search } });
-                if (this.view === 'catalog') { this.products = res.data; this.updateStats(); } 
-                else { this.trashProducts = res.data; }
-            } catch (e) { if(e.response && e.response.status === 401) this.logout(); }
+        resetProductForm() { this.productData = { id: null, name: '', sku: '', stock: 0, price_bs: 0, cc_value: 0, foto_persona: '' }; this.editMode = false; },
+        editProduct(product) { this.productData = { ...product }; this.editMode = true; this.showModal = true; },
+        async deleteProduct(id) {
+            if ((await Swal.fire({ title: '¿Eliminar?', icon: 'warning', showCancelButton: true })).isConfirmed) {
+                await axios.delete(`/products/${id}`);
+                this.fetchProducts();
+            }
         },
 
-        async fetchFbos() { try { const res = await axios.get(`/fbos`); this.fbos = res.data; } catch (e) {} },
-        async fetchSales() { try { const res = await axios.get(`/sales`); this.sales = res.data; } catch (e) {} },
-        
+        async fetchFbos() { 
+            try { this.fbos = (await axios.get('/fbos')).data; } 
+            catch(e) { console.error("FBO Error"); }
+        },
+
+        async fetchSales() { 
+            try { this.sales = (await axios.get('/sales')).data; } 
+            catch(e) { this.sales = []; }
+        },
+
         updateStats() {
             this.stats.total_items = this.products.length;
             this.stats.total_value = this.products.reduce((acc, p) => acc + (p.price_bs * p.stock), 0).toFixed(2);
-        },
-
-        async inicializarFaceDetection() {
-            try {
-                await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
-                this.faceApp.cargando = false;
-                this.iniciarCamaraSeguridad();
-            } catch (error) { console.error("Error IA:", error); }
-        },
-
-        iniciarCamaraSeguridad() {
-            setTimeout(() => {
-                const video = document.getElementById('security-video');
-                const canvas = document.getElementById('security-canvas');
-                if (!video || !canvas) return;
-                navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
-                    .then(stream => {
-                        video.srcObject = stream;
-                        video.onplaying = () => {
-                            const displaySize = { width: video.clientWidth, height: video.clientHeight };
-                            faceapi.matchDimensions(canvas, displaySize);
-                            this.faceInterval = setInterval(async () => {
-                                if(video.paused || video.ended) return;
-                                const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
-                                this.faceApp.rostroDetectado = detections.length > 0;
-                                const resizedDetections = faceapi.resizeResults(detections, displaySize);
-                                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-                                faceapi.draw.drawDetections(canvas, resizedDetections);
-                            }, 300); 
-                        };
-                    });
-            }, 500); 
+            this.totalCC = this.products.reduce((acc, p) => acc + (parseFloat(p.cc_value) * p.stock), 0).toFixed(3);
         }
     }));
 });

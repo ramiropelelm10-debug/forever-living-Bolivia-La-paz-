@@ -6,7 +6,7 @@ use LaravelWebauthn\Models\WebauthnKey;
 return [
     'enable' => true,
 
-    'guard' => 'sanctum',
+    'guard' => 'web',
 
     'username' => 'email',
 

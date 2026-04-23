@@ -1,63 +1,120 @@
 <?php
 
-namespace App\Http\Controllers\Api; // <-- Ubicación actualizada
+namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+
+// Estas son las importaciones que eliminan el error de la rayita roja
 use App\Models\Sale;
 use App\Models\Product;
-use Illuminate\Support\Facades\Auth;
-use App\Http\Controllers\Controller; // <-- Importante para extender de Controller
 
 class SaleController extends Controller
 {
     /**
-     * Listar ventas con sus productos asociados
+     * Lista todas las ventas para el panel administrativo
      */
     public function index()
     {
-        // Usamos 'with' para traer los datos del producto asociado (Eager Loading)
-        $sales = Sale::with('product')->latest()->get();
-        return response()->json($sales);
+        // Cargamos las relaciones para que en el panel se vea el nombre del FBO y del producto
+        return Sale::with(['user', 'product'])->orderBy('created_at', 'desc')->get();
     }
 
     /**
-     * Registrar una venta con impuestos de Bolivia (IVA e IT)
+     * Procesa la compra desde la tienda "Wouuu"
      */
     public function store(Request $request)
     {
-        // 1. Identificar al usuario (Admin/Vendedor)
-        $userId = Auth::id() ?: 1;
+        $user = Auth::user(); // El FBO autenticado
+        $cartItems = $request->items; // Array de productos enviados desde el frontend
 
-        // 2. Buscar producto y validar stock
-        $product = Product::find($request->product_id);
-
-        if (!$product) {
-            return response()->json(['message' => 'Producto no encontrado'], 404);
+        if (!$cartItems || count($cartItems) == 0) {
+            return response()->json(['error' => 'El carrito está vacío'], 400);
         }
 
-        if ($product->stock < $request->cantidad) {
-            return response()->json(['message' => 'Stock insuficiente para Forever Bolivia'], 400);
+        try {
+            // Iniciamos transacción para que si un producto falla, no se guarde nada
+            return DB::transaction(function () use ($user, $cartItems, $request) {
+                
+                $salesProcessed = [];
+                $totalCCAcumulado = 0;
+
+                foreach ($cartItems as $item) {
+                    // Buscar el producto por SKU
+                    $product = Product::where('sku', $item['sku'])->first();
+
+                    if (!$product) {
+                        throw new \Exception("Producto con SKU {$item['sku']} no encontrado.");
+                    }
+
+                    // 1. Verificar Stock
+                    if ($product->stock < $item['quantity']) {
+                        throw new \Exception("Stock insuficiente para {$product->name}. Disponibles: {$product->stock}");
+                    }
+
+                    // 2. Descontar Stock
+                    $product->decrement('stock', $item['quantity']);
+
+                    // 3. Cálculos de Precios e Impuestos (Bolivia)
+                    // Aplicamos el descuento que tenga el FBO en su perfil
+                    $discountRate = ($user->discount_percent ?? 0) / 100;
+                    $precioConDescuento = $product->price_bs * (1 - $discountRate);
+                    
+                    $montoTotal = $precioConDescuento * $item['quantity'];
+                    $montoIva = $montoTotal * 0.13; // 13% IVA
+                    $montoIt = $montoTotal * 0.03;  // 3% IT
+                    $montoNeto = $montoTotal - $montoIva;
+                    $ccCalculados = $product->cc_value * $item['quantity'];
+
+                    // 4. Generar Número de Factura Correlativo
+                    $nextId = (DB::table('sales')->max('id') ?? 0) + 1;
+                    $nroFactura = "FAC-" . date('Ymd') . "-" . str_pad($nextId, 5, '0', STR_PAD_LEFT);
+
+                    // 5. Guardar en la base de datos con tus nombres de columna de pgAdmin
+                    $sale = Sale::create([
+                        'nro_factura'    => $nroFactura,
+                        'user_id'        => $user->id,
+                        'product_id'     => $product->id,
+                        'cantidad'       => $item['quantity'],
+                        'cliente_nit'    => $request->nit_ci ?? '0',
+                        'cliente_nombre' => $request->razon_social ?? 'SIN NOMBRE',
+                        'monto_total'    => $montoTotal,
+                        'monto_iva'      => $montoIva,
+                        'monto_it'       => $montoIt,
+                        'monto_neto'     => $montoNeto,
+                        'total_cc'       => $ccCalculados
+                    ]);
+
+                    $totalCCAcumulado += $ccCalculados;
+                    $salesProcessed[] = $sale;
+                }
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => '¡Venta procesada en PostgreSQL! 🚀',
+                    'nro_factura' => $salesProcessed[0]->nro_factura,
+                    'cc_logrados' => round($totalCCAcumulado, 3)
+                ], 201);
+            });
+
+        } catch (\Exception $e) {
+            // Si hay cualquier error (de stock o de base de datos), se cancela todo
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 500);
         }
+    }
 
-        $total = $product->price_bs * $request->cantidad;
-
-        // 3. Crear la venta con cálculos de impuestos bolivianos
-        $sale = Sale::create([
-            'nro_factura'    => 'FAC-' . time(),
-            'user_id'        => $userId,
-            'product_id'     => $product->id,
-            'cantidad'       => $request->cantidad,
-            'monto_total'    => $total,
-            'monto_iva'      => $total * 0.13, // 13% IVA
-            'monto_it'       => $total * 0.03, // 3% IT
-            'monto_neto'     => $total - ($total * 0.13),
-            'total_cc'       => $product->cc_value * $request->cantidad,
-            'cliente_nombre' => $request->cliente_nombre ?: 'Mostrador'
-        ]);
-
-        // 4. Descontar del inventario
-        $product->decrement('stock', $request->cantidad);
-
-        return response()->json($sale, 201);
+    /**
+     * Muestra el detalle de una venta única
+     */
+    public function show($id)
+    {
+        $sale = Sale::with(['user', 'product'])->find($id);
+        if (!$sale) return response()->json(['message' => 'Venta no encontrada'], 404);
+        return $sale;
     }
 }
