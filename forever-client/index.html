@@ -5,13 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Forever Bolivia | Panel de Administración</title>
     
+    <!-- Librerías base -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
-    <script type="module" src="/main.js"></script>
+    
+    <!-- LIBRERÍAS PARA EL PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
+    <!-- TRUCO ROMPE-CACHÉ -->
+    <script type="module" src="/main.js?v=5000"></script>
 
     <style>
         [x-cloak] { display: none !important; }
@@ -23,6 +30,7 @@
 
 <div class="max-w-6xl mx-auto p-6" x-data="productApp" x-init="init()" x-cloak>
     
+    <!-- PANTALLA DE CARGA -->
     <div x-show="isLoading" class="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm" x-transition>
         <div class="bg-white p-8 rounded-[2rem] shadow-2xl flex flex-col items-center border-4 border-yellow-400">
             <div class="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-slate-800 mb-4"></div>
@@ -30,6 +38,7 @@
         </div>
     </div>
 
+    <!-- PANTALLA DE LOGIN -->
     <template x-if="!isLoggedIn">
         <div class="min-h-[80vh] flex items-center justify-center">
             <div class="bg-white p-10 rounded-[3rem] shadow-2xl border border-slate-100 w-full max-w-md relative overflow-hidden text-center">
@@ -63,8 +72,10 @@
         </div>
     </template>
 
+    <!-- PANEL PRINCIPAL -->
     <template x-if="isLoggedIn">
         <div>
+            <!-- HEADER -->
             <div class="flex flex-col md:flex-row justify-between items-center mb-6 bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200 gap-4">
                 <div class="flex items-center gap-3">
                     <img src="https://laravel.com/img/logomark.min.svg" class="h-10 w-auto">
@@ -75,24 +86,27 @@
                 </div>
                 
                 <div class="flex items-center gap-3">
-                    <button @click="registerBiometrics()" class="bg-blue-600 text-white px-4 py-3 rounded-2xl font-black text-[10px] uppercase shadow-md hover:bg-blue-700 transition flex items-center gap-2">
-                        <i class="fas fa-user-shield"></i> Llavero Biométrico
-                    </button> 
-                    <button @click="exportToExcel()" class="bg-emerald-600 text-white px-4 py-3 rounded-2xl font-black text-[10px] uppercase shadow-md">💾 Excel</button>
-                    <button @click="lockScreen()" class="bg-amber-50 text-amber-600 px-4 py-3 rounded-2xl font-black text-[10px] uppercase border border-amber-100 hover:bg-amber-100 transition"><i class="fas fa-lock"></i> Bloquear</button>
-                    <button @click="logout()" class="bg-red-50 text-red-500 px-4 py-3 rounded-2xl font-black text-[10px] uppercase border border-red-100 hover:bg-red-100 transition">Cerrar Sesión</button>
+                    <button @click="exportToExcel()" class="bg-emerald-600 text-white px-4 py-3 rounded-2xl font-black text-[10px] uppercase shadow-md hover:bg-emerald-700 transition flex items-center gap-2">
+                        <i class="fas fa-file-excel"></i> Exportar Excel
+                    </button>
+                    <button @click="logout()" class="bg-red-50 text-red-500 px-4 py-3 rounded-2xl font-black text-[10px] uppercase border border-red-100 hover:bg-red-100 transition flex items-center gap-2">
+                        <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
+                    </button>
                 </div>
             </div>
 
+            <!-- MENU DE PESTAÑAS -->
             <div class="flex border-b border-slate-200 mb-8 gap-8 px-4 overflow-x-auto">
-                <button @click="view = 'catalog'; fetchProducts()" :class="view === 'catalog' || view === 'trash' ? 'tab-active' : 'text-slate-400'" class="pb-4 text-xs font-black uppercase tracking-widest transition-all">📦 Inventario</button>
+                <button @click="view = 'catalog'; isTrashView = false; fetchProducts()" :class="view === 'catalog' ? 'tab-active' : 'text-slate-400'" class="pb-4 text-xs font-black uppercase tracking-widest transition-all">📦 Inventario</button>
                 <button @click="view = 'sales'; fetchSales()" :class="view === 'sales' ? 'tab-active' : 'text-slate-400'" class="pb-4 text-xs font-black uppercase tracking-widest transition-all">📊 Ventas y Fiscal</button>
+                <button @click="view = 'clients'; fetchClients()" :class="view === 'clients' ? 'tab-active' : 'text-slate-400'" class="pb-4 text-xs font-black uppercase tracking-widest transition-all">🛒 Clientes</button>
                 <button @click="view = 'fbo_admin'; fetchFbos()" :class="view === 'fbo_admin' ? 'tab-active' : 'text-slate-400'" class="pb-4 text-xs font-black uppercase tracking-widest transition-all">👥 Admin FBO</button>
                 <button @click="view = 'profile'" :class="view === 'profile' ? 'tab-active text-blue-600' : 'text-slate-400'" class="pb-4 text-xs font-black uppercase tracking-widest transition-all">🔐 Perfil Admin</button>
             </div>
 
-            <div x-show="view === 'catalog' || view === 'trash'">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8" x-show="view === 'catalog'">
+            <!-- VISTA: INVENTARIO -->
+            <div x-show="view === 'catalog'">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8" x-show="!isTrashView">
                     <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
                         <p class="text-[10px] font-black text-slate-400 uppercase">Productos</p>
                         <h3 class="text-3xl font-black text-slate-800" x-text="stats.total_items">0</h3>
@@ -111,13 +125,21 @@
                     </div>
                 </div>
 
+                <div x-show="isTrashView" class="mb-8 p-6 bg-red-50 rounded-3xl border border-red-100 flex items-center gap-4">
+                    <i class="fas fa-trash-alt text-3xl text-red-400"></i>
+                    <div>
+                        <h3 class="text-xl font-black text-red-600 uppercase">Papelera de Reciclaje</h3>
+                        <p class="text-xs font-bold text-red-400">Estos productos están ocultos en tu tienda.</p>
+                    </div>
+                </div>
+
                 <div class="flex flex-col md:flex-row gap-4 mb-6">
                     <div class="flex-1 relative">
                         <input type="text" x-model="search" @input.debounce.500ms="fetchProducts()" placeholder="Buscar producto o SKU..." class="w-full pl-12 pr-4 py-4 bg-white border-2 border-slate-100 rounded-2xl outline-none focus:border-yellow-400 font-bold shadow-sm">
                         <div class="absolute inset-y-0 left-0 pl-4 flex items-center">🔍</div>
                     </div>
-                    <button @click="showModal = true; editMode = false; resetProductForm();" class="bg-yellow-400 text-slate-900 px-8 py-4 rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-yellow-500 transition">Nuevo Producto</button>
-                    <button @click="toggleTrash()" class="bg-slate-800 text-white px-6 py-4 rounded-2xl font-black uppercase text-xs shadow-lg transition" x-text="view === 'catalog' ? 'Ver Papelera' : 'Volver'"></button>
+                    <button x-show="!isTrashView" @click="showModal = true; editMode = false; resetProductForm();" class="bg-yellow-400 text-slate-900 px-8 py-4 rounded-2xl font-black uppercase text-xs shadow-lg hover:bg-yellow-500 transition">Nuevo Producto</button>
+                    <button @click="toggleTrash()" class="bg-slate-800 text-white px-6 py-4 rounded-2xl font-black uppercase text-xs shadow-lg transition" x-text="!isTrashView ? 'Ver Papelera' : 'Volver al Inventario'"></button>
                 </div>
 
                 <div class="bg-white rounded-[2.5rem] shadow-xl overflow-hidden border border-slate-100">
@@ -132,7 +154,7 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
-                            <template x-for="product in (view === 'catalog' ? products : trashProducts)" :key="product.id">
+                            <template x-for="product in products" :key="product.id">
                                 <tr class="hover:bg-slate-50/50 transition-colors">
                                     <td class="px-6 py-4 flex items-center gap-4">
                                         <img :src="product.foto_persona || 'https://via.placeholder.com/150'" class="h-12 w-12 rounded-xl object-cover shadow-sm border-2 border-slate-100">
@@ -147,12 +169,14 @@
                                         <span :class="product.stock < 5 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'" class="px-3 py-1 rounded-full text-[10px] font-black" x-text="product.stock + ' U.'"></span>
                                     </td>
                                     <td class="px-6 py-4 text-right">
-                                        <div class="flex justify-end gap-2" x-show="view === 'catalog'">
+                                        <div class="flex justify-end gap-2" x-show="!isTrashView">
                                             <button @click="sellProduct(product)" class="p-2 bg-emerald-500 text-white rounded-lg shadow-md hover:bg-emerald-600 transition">💰</button>
                                             <button @click="editProduct(product)" class="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200">✏️</button>
                                             <button @click="deleteProduct(product.id)" class="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-100">🗑️</button>
                                         </div>
-                                        <button x-show="view === 'trash'" @click="restoreProduct(product.id)" class="bg-blue-600 text-white px-4 py-1 rounded-lg text-[10px] font-black uppercase shadow-md">Restaurar</button>
+                                        <button x-show="isTrashView" @click="restoreProduct(product.id)" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-black uppercase shadow-md hover:bg-blue-700 transition flex items-center justify-center w-full gap-2">
+                                            <i class="fas fa-undo"></i> Restaurar
+                                        </button>
                                     </td>
                                 </tr>
                             </template>
@@ -161,6 +185,7 @@
                 </div>
             </div>
 
+            <!-- VISTA: VENTAS -->
             <template x-if="view === 'sales'">
                 <div class="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 overflow-x-auto">
                     <h2 class="text-2xl font-black text-slate-800 uppercase italic mb-6">Historial de Ventas Bolivia</h2>
@@ -168,22 +193,31 @@
                         <thead>
                             <tr class="bg-slate-50 text-slate-400 uppercase text-[10px] font-black tracking-widest border-b border-slate-100">
                                 <th class="p-4">Factura</th>
-                                <th class="p-4">Producto</th>
-                                <th class="p-4 text-center">Cant.</th>
+                                <th class="p-4">Cliente (NIT/CI)</th>
+                                <th class="p-4 text-center">Productos</th>
                                 <th class="p-4">Total (Bs)</th>
                                 <th class="p-4 text-red-400">IVA (13%)</th>
                                 <th class="p-4">CC</th>
+                                <th class="p-4 text-center">Acción</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-50">
                             <template x-for="sale in sales" :key="sale.id">
                                 <tr class="hover:bg-slate-50/50 transition">
                                     <td class="p-4 font-mono text-xs font-bold text-slate-500" x-text="sale.nro_factura"></td>
-                                    <td class="p-4 font-bold text-slate-700 text-sm" x-text="sale.product?.name"></td>
-                                    <td class="p-4 text-center font-bold" x-text="sale.cantidad"></td>
+                                    <td class="p-4 font-bold text-slate-700 text-sm">
+                                        <span x-text="sale.razon_social || 'Consumidor Final'"></span><br>
+                                        <span class="text-[10px] text-slate-400 font-mono" x-text="'NIT: ' + (sale.nit_ci || 'S/N')"></span>
+                                    </td>
+                                    <td class="p-4 text-center font-bold text-xs" x-text="sale.items ? sale.items.length + ' Items' : '-'"></td>
                                     <td class="p-4 font-black text-emerald-600" x-text="'Bs. ' + sale.monto_total"></td>
                                     <td class="p-4 text-red-500 font-bold text-xs" x-text="'Bs. ' + sale.monto_iva"></td>
                                     <td class="p-4 font-black text-blue-600" x-text="sale.total_cc"></td>
+                                    <td class="p-4 text-center">
+                                        <button @click="descargarFactura(sale)" class="bg-red-50 text-red-600 px-3 py-2 rounded-xl border border-red-100 hover:bg-red-500 hover:text-white transition shadow-sm text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2 w-full">
+                                            <i class="fas fa-file-pdf"></i> PDF
+                                        </button>
+                                    </td>
                                 </tr>
                             </template>
                         </tbody>
@@ -191,6 +225,52 @@
                 </div>
             </template>
 
+            <!-- VISTA: CLIENTES NORMALES -->
+            <template x-if="view === 'clients'">
+                <div class="space-y-8">
+                    <div class="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100">
+                        <div class="flex items-center gap-4 mb-8 border-b-2 border-slate-50 pb-4">
+                            <div class="bg-emerald-600 text-white p-3 rounded-2xl"><i class="fas fa-users"></i></div>
+                            <div>
+                                <h2 class="text-2xl font-black text-slate-800 uppercase italic leading-none">Registro de Cliente</h2>
+                                <p class="text-xs text-slate-400 font-bold mt-1">Consumidores finales y clientes frecuentes</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <input type="text" x-model="clientData.name" placeholder="Nombres" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold text-slate-700 focus:border-emerald-500 outline-none">
+                            <input type="text" x-model="clientData.last_name" placeholder="Apellidos" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold text-slate-700 focus:border-emerald-500 outline-none">
+                            <input type="email" x-model="clientData.email" placeholder="Correo Electrónico" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold text-slate-700 focus:border-emerald-500 outline-none">
+                            
+                            <!-- NUEVO: Campo de Contraseña para el Cliente -->
+                            <input type="password" x-model="clientData.password" placeholder="Asignar Contraseña" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold text-slate-700 focus:border-emerald-500 outline-none">
+                            
+                            <input type="text" x-model="clientData.dni" placeholder="CI o NIT" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold text-slate-700 focus:border-emerald-500 outline-none">
+                            <input type="text" x-model="clientData.phone" placeholder="Teléfono / Celular" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold text-slate-700 focus:border-emerald-500 outline-none">
+                        </div>
+                        <button @click="saveClient()" class="mt-8 w-full bg-emerald-600 text-white py-5 rounded-[2rem] font-black uppercase tracking-widest text-xs shadow-xl hover:bg-emerald-700 transition active:scale-95">Guardar Cliente en Base de Datos</button>
+                    </div>
+
+                    <div class="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100">
+                        <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.3em] mb-6 px-4 italic">Lista de Clientes Frecuentes</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <template x-for="client in clients" :key="client.id">
+                                <div class="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex justify-between items-center hover:bg-white hover:shadow-md transition">
+                                    <div>
+                                        <p class="font-black text-slate-800 text-sm" x-text="(client.persona?.nombres || client.nombres || client.name) + ' ' + (client.persona?.apellidos || client.apellidos || client.last_name || '')"></p>
+                                        <p class="text-[10px] text-slate-400 font-bold font-mono uppercase mt-1" x-text="'NIT/CI: ' + (client.persona?.ci || client.dni || 'S/N')"></p>
+                                    </div>
+                                    <div class="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-black uppercase shadow-sm">Cliente</div>
+                                </div>
+                            </template>
+                            <div x-show="clients.length === 0" class="col-span-full text-center py-10 text-slate-400 font-bold text-sm">
+                                No hay clientes registrados aún.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- VISTA: FBO ADMIN -->
             <template x-if="view === 'fbo_admin'">
                 <div class="space-y-8">
                     <div class="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100">
@@ -198,9 +278,12 @@
                             <div class="bg-slate-800 text-white p-3 rounded-2xl">👤</div>
                             <h2 class="text-2xl font-black text-slate-800 uppercase italic">Registro de Nuevo FBO</h2>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             <input type="text" x-model="fboData.fbo_id" placeholder="ID FBO (Ej: 591000123)" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold text-slate-700">
-                            <input type="text" x-model="fboData.name" placeholder="Nombres y Apellidos" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold text-slate-700">
+                            <input type="text" x-model="fboData.name" placeholder="Nombres" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold text-slate-700">
+                            <input type="text" x-model="fboData.last_name" placeholder="Apellidos" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold text-slate-700">
+                            <input type="email" x-model="fboData.email" placeholder="Correo (Para que inicie sesión)" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold text-slate-700">
+                            <input type="text" x-model="fboData.dni" placeholder="CI o NIT" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold text-slate-700">
                             <input type="number" x-model="fboData.discount_rate" placeholder="Descuento (%)" class="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold text-slate-700">
                         </div>
                         <button @click="saveFbo()" class="mt-8 w-full bg-slate-800 text-white py-5 rounded-[2rem] font-black uppercase tracking-widest text-xs shadow-xl hover:bg-slate-900 transition active:scale-95">Registrar Distribuidor en Sistema</button>
@@ -212,7 +295,7 @@
                             <template x-for="fbo in fbos" :key="fbo.id">
                                 <div class="p-6 bg-slate-50 rounded-3xl border border-slate-100 flex justify-between items-center">
                                     <div>
-                                        <p class="font-black text-slate-800" x-text="fbo.name"></p>
+                                        <p class="font-black text-slate-800" x-text="fbo.user?.persona?.nombres ? fbo.user.persona.nombres + ' ' + fbo.user.persona.apellidos : 'FBO ' + fbo.fbo_id"></p>
                                         <p class="text-[10px] text-slate-400 font-bold font-mono uppercase" x-text="'ID: ' + fbo.fbo_id"></p>
                                     </div>
                                     <div class="bg-yellow-100 text-yellow-700 px-4 py-1 rounded-full text-[10px] font-black uppercase" x-text="fbo.discount_rate + '% DESC.'"></div>
@@ -223,6 +306,7 @@
                 </div>
             </template>
 
+            <!-- PERFIL -->
             <template x-if="view === 'profile'">
                 <div class="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100">
                     <div class="flex items-center gap-4 mb-8 border-b-2 border-slate-50 pb-4">
@@ -250,17 +334,30 @@
 
                         <div class="text-center bg-slate-800 p-8 rounded-[3rem] shadow-2xl">
                             <p class="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em] mb-6">Huella Facial Guardada</p>
-                            <div class="w-48 h-48 mx-auto bg-slate-900 rounded-full border-4 border-blue-500 overflow-hidden flex items-center justify-center">
-                                <template x-if="rostroAdminUrl"><img :src="rostroAdminUrl" class="w-full h-full object-cover"></template>
-                                <template x-if="!rostroAdminUrl"><i class="fas fa-user-secret text-6xl text-slate-700"></i></template>
+                            
+                            <div class="relative w-48 h-48 mx-auto bg-slate-900 rounded-full border-4 border-blue-500 overflow-hidden flex items-center justify-center">
+                                <video id="perfil-video" x-show="currentStream" autoplay muted playsinline class="absolute inset-0 w-full h-full object-cover z-10"></video>
+                                
+                                <template x-if="rostroAdminUrl && !currentStream"><img :src="rostroAdminUrl" class="w-full h-full object-cover"></template>
+                                <template x-if="!rostroAdminUrl && !currentStream"><i class="fas fa-user-secret text-6xl text-slate-700"></i></template>
+                            </div>
+
+                            <div class="mt-6 flex justify-center gap-2">
+                                <button @click="iniciarCamaraPerfil()" x-show="!currentStream" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-md hover:bg-blue-700 transition">
+                                    <i class="fas fa-camera mr-1"></i> Encender Cámara
+                                </button>
+                                <button @click="guardarHuellaFacial()" x-show="currentStream" class="bg-emerald-500 text-white px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-md hover:bg-emerald-600 transition">
+                                    <i class="fas fa-save mr-1"></i> Capturar Rostro
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
             </template>
-        </div>
+            </div>
     </template>
 
+    <!-- MODAL PRODUCTOS -->
     <div x-show="showModal" class="fixed inset-0 z-[1001] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" x-cloak x-transition>
         <div class="bg-white rounded-[3rem] shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100" @click.away="showModal = false;">
             <div class="p-8">

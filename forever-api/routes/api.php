@@ -3,13 +3,13 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-// --- IMPORTACIONES DE CONTROLADORES (ESTO ELIMINA LOS ERRORES) ---
+// --- IMPORTACIONES DE CONTROLADORES ---
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\FboController;
-use App\Http\Controllers\Api\SaleController;
+use App\Http\Controllers\Api\VentaController; 
+use App\Http\Controllers\Api\ClienteController; // <-- NUEVO: Controlador de Clientes
 
-// Controlador oficial de Biometría (WebAuthn)
 use LaravelWebauthn\Http\Controllers\WebauthnKeyController;
 
 /*
@@ -18,34 +18,21 @@ use LaravelWebauthn\Http\Controllers\WebauthnKeyController;
 |--------------------------------------------------------------------------
 */
 
-// --- RUTAS PÚBLICAS (Sin necesidad de estar logueado) ---
-
-// Login tradicional
 Route::post('/login', [AuthController::class, 'login']);
-
-// Verificación de código OTP (Seguridad de 2 pasos)
 Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
 
-
-// --- RUTAS PROTEGIDAS (Requieren Token de Sanctum) ---
+// RUTAS PROTEGIDAS (Solo Admin / Usuarios Logueados)
 Route::middleware('auth:sanctum')->group(function () {
     
-    // Obtener los datos del usuario conectado
     Route::get('/user', function (Request $request) {
-        return $request->user();
+        return $request->user()->load('persona'); 
     });
 
-    /**
-     * SEGURIDAD BIOMÉTRICA (Llavero / Face ID)
-     */
-    // Generar opciones para registrar huella/rostro
     Route::post('/webauthn/keys/options', [WebauthnKeyController::class, 'create'])
         ->middleware(\App\Http\Middleware\WebauthnEmailMiddleware::class);
         
-    // Registro final de la llave biométrica
     Route::post('/webauthn/keys', [AuthController::class, 'register']);
 
-    // Puente para obtener token rápido mediante Biometría
     Route::post('/webauthn/get-token', function (Request $request) {
         $user = $request->user();
         return response()->json([
@@ -54,27 +41,31 @@ Route::middleware('auth:sanctum')->group(function () {
         ]);
     });
 
-    // Ajustes de perfil y biometría
     Route::post('/user/toggle-biometrics', [AuthController::class, 'toggleBiometrics']);
     Route::post('/user/update-photo', [AuthController::class, 'updateProfile']);
 
     /**
-     * MÓDULOS DE GESTIÓN FOREVER (CRUD)
+     * MÓDULOS DE GESTIÓN FOREVER (Estructura Normalizada)
      */
     
-    // Gestión de Productos: Control de stock y precios
+    // Papelera de Productos
+    Route::get('/products/trash', [ProductController::class, 'trash']); 
+    Route::post('/products/{id}/restore', [ProductController::class, 'restore']); 
+    
+    // Gestión de Productos
     Route::apiResource('products', ProductController::class);
     
-    // Gestión de FBOs: Administra tus distribuidores y sus descuentos
+    // Gestión de FBOs
     Route::apiResource('fbos', FboController::class);
     
-    // GESTIÓN DE VENTAS: El motor que conecta tu tienda con PostgreSQL
-    // Aquí es donde se procesa el botón "Procesar Venta" y se guardan las facturas
-    Route::apiResource('sales', SaleController::class);
-    
-    // Cálculo previo de impuestos para Bolivia (13% IVA, 3% IT)
-    Route::post('/sales/calculate-taxes', [SaleController::class, 'calculateTaxes']);
+    // Gestión de Ventas
+    Route::apiResource('sales', VentaController::class);
+    Route::post('/sales/calculate-taxes', [VentaController::class, 'calculateTaxes']);
 
-    // Logout: Elimina el token de acceso actual
+    // ---> NUEVO: Gestión de Clientes Frecuentes <---
+    Route::get('/clientes', [ClienteController::class, 'index']);
+    Route::post('/clientes', [ClienteController::class, 'store']);
+
+    // Logout
     Route::post('/logout', [AuthController::class, 'logout']);
 });
