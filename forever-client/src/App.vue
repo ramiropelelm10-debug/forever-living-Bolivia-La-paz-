@@ -1,13 +1,12 @@
 <template>
-  <router-view />
+  <router-view></router-view>
 </template>
 
 <script setup>
-// En App.vue no necesitas importar los componentes manualmente, 
-// de eso se encarga el router/index.js que configuramos antes.
+// El router (router/index.js) ahora se encarga de la seguridad y de mostrar los layouts correspondientes.
+// Ya no necesitamos la redirección aquí.
 </script>
 
 <style>
-/* Importamos los estilos globales (Tailwind, etc.) */
-@import "./style.css";
+/* Estilos globales básicos si los necesitas, pero sin afectar el diseño de las vistas */
 </style>

@@ -12,6 +12,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Exception;
 
+// 🔥 IMPORTACIONES PARA PDF Y EXCEL
+use Barryvdh\DomPDF\Facade\Pdf;
+use App\Exports\VentasExport;
+use Maatwebsite\Excel\Facades\Excel;
+
 class VentaController extends Controller
 {
     /**
@@ -19,10 +24,7 @@ class VentaController extends Controller
      */
     public function index()
     {
-        // ¡CORRECCIÓN AQUÍ! 
-        // Quitamos 'user.persona' porque causaba el Error 500.
-        // Ahora solo traemos los items y sus productos.
-        $ventas = Venta::with(['items.producto'])
+        $ventas = Venta::with(['items.producto', 'user.persona'])
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -30,19 +32,31 @@ class VentaController extends Controller
     }
 
     /**
-     * Registrar una nueva venta (Cabecera + Detalles)
+     * 🔥 HISTORIAL PERSONAL DEL USUARIO (Lo que pide PerfilView.vue) 🔥
+     */
+    public function mySales(Request $request)
+    {
+        // Trae solo las compras del usuario que tiene el token activo
+        $ventas = Venta::where('user_id', $request->user()->id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json($ventas);
+    }
+
+    /**
+     * REGISTRO AVANZADO (Facturación oficial)
      */
     public function store(Request $request)
     {
-        // 1. VALIDACIÓN DE ENTRADA
         $validator = Validator::make($request->all(), [
-            'nit_ci'           => 'nullable|string',
-            'razon_social'     => 'nullable|string',
-            'items'            => 'required|array|min:1',
-            'items.*.id'       => 'required|exists:products,id',
+            'nit_ci'         => 'nullable|string',
+            'razon_social'   => 'nullable|string',
+            'items'          => 'required|array|min:1',
+            'items.*.id'     => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
-            'monto_total'      => 'required|numeric',
-            'total_cc'         => 'required|numeric',
+            'monto_total'    => 'required|numeric',
+            'total_cc'       => 'required|numeric',
         ]);
 
         if ($validator->fails()) {
@@ -53,30 +67,25 @@ class VentaController extends Controller
         }
 
         try {
-            // 2. INICIO DE TRANSACCIÓN ATÓMICA
             return DB::transaction(function () use ($request) {
                 
-                // A. CREAR CABECERA DE LA VENTA
                 $venta = Venta::create([
                     'nro_factura'  => 'FAC-' . strtoupper(uniqid()), 
-                    'user_id'      => Auth::id() ?? 1, // Respaldo por si el Auth es nulo
+                    'user_id'      => Auth::id() ?? 1, 
                     'nit_ci'       => $request->nit_ci,
                     'razon_social' => $request->razon_social,
                     'monto_total'  => $request->monto_total,
-                    'monto_iva'    => $request->monto_total * 0.13, // IVA 13% Bolivia
+                    'monto_iva'    => $request->monto_total * 0.13, 
                     'total_cc'     => $request->total_cc,
                 ]);
 
-                // B. PROCESAR CADA PRODUCTO DEL CARRITO
                 foreach ($request->items as $item) {
                     $producto = Product::findOrFail($item['id']);
 
-                    // Verificar stock antes de proceder
                     if ($producto->stock < $item['quantity']) {
                         throw new Exception("Stock insuficiente para el producto: " . $producto->name);
                     }
 
-                    // Guardar el detalle (Item de Venta)
                     ItemDeVenta::create([
                         'venta_id'        => $venta->id,
                         'product_id'      => $producto->id,
@@ -85,11 +94,9 @@ class VentaController extends Controller
                         'subtotal'        => $item['quantity'] * $producto->price_bs,
                     ]);
 
-                    // C. ACTUALIZAR STOCK DEL PRODUCTO
                     $producto->decrement('stock', $item['quantity']);
                 }
 
-                // 3. RESPUESTA EXITOSA
                 return response()->json([
                     'message'     => '¡Venta procesada exitosamente!',
                     'nro_factura' => $venta->nro_factura,
@@ -99,10 +106,56 @@ class VentaController extends Controller
             });
 
         } catch (Exception $e) {
-            // Si algo falla, Laravel hace Rollback automático gracias a DB::transaction
             return response()->json([
                 'error'   => 'La venta no pudo ser procesada',
                 'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * 🔥 NUEVO: REGISTRO SIMPLE (La función que pediste)
+     */
+    public function storeSimple(Request $request)
+    {
+        $request->validate([
+            'product_id' => 'required',
+            'cantidad'   => 'required',
+            'total_bs'   => 'required',
+        ]);
+
+        return Venta::create($request->all());
+    }
+
+    /**
+     * GENERAR PDF DE LA VENTA
+     */
+    public function generarPdf($id)
+    {
+        try {
+            $venta = Venta::with(['items.producto'])->findOrFail($id);
+            $pdf = Pdf::loadView('pdf.factura', compact('venta'));
+            return $pdf->download("Factura_{$venta->nro_factura}.pdf");
+        } catch (Exception $e) {
+            return response()->json([
+                'error' => 'No se pudo generar el PDF',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * EXPORTAR HISTORIAL A EXCEL
+     */
+    public function exportExcel() 
+    {
+        try {
+            if (ob_get_contents()) ob_end_clean(); 
+            return Excel::download(new VentasExport, 'Reporte_Ventas_Forever_Bolivia.xlsx');
+        } catch (Exception $e) {
+            return response()->json([
+                'error' => 'Error al generar el archivo Excel',
+                'details' => $e->getMessage()
             ], 500);
         }
     }

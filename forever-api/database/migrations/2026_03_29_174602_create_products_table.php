@@ -14,6 +14,10 @@ return new class extends Migration
             $table->string('name');
             // Usamos TEXT porque las imágenes en Base64 son cadenas de texto muy largas
             $table->text('foto_persona')->nullable(); 
+            
+            // 🔥 AQUÍ AGREGAMOS LA COLUMNA DE CATEGORÍA 🔥
+            $table->string('categoria')->nullable(); 
+            
             $table->decimal('price_bs', 10, 2); 
             $table->decimal('cc_value', 10, 3); 
             $table->integer('stock')->default(0);

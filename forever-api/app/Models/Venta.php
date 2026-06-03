@@ -4,10 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Venta extends Model
 {
-    // Usamos 'ventas' porque ese es el nombre que pusimos en la migración
     protected $table = 'ventas'; 
 
     protected $fillable = [
@@ -20,6 +20,17 @@ class Venta extends Model
         'total_cc'
     ];
 
+    /**
+     * Relación con el usuario (FBO/Admin) que registró la venta
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Relación con los detalles de los productos vendidos
+     */
     public function items(): HasMany
     {
         return $this->hasMany(ItemDeVenta::class);

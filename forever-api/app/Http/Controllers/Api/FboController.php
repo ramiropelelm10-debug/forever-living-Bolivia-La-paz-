@@ -16,13 +16,13 @@ class FboController extends Controller
 {
     public function index() 
     {
-        // Cargamos también la relación con el usuario y la persona para ver los nombres en el listado
+        // Traemos todo anidado para que Vue pueda mostrar nombres y apellidos
         return response()->json(Fbo::with('user.persona')->orderBy('created_at', 'desc')->get());
     }
 
     public function store(Request $request)
     {
-        // 1. VALIDACIÓN INTEGRAL
+        // 1. VALIDACIÓN (Sincronizada con el Frontend)
         $validator = Validator::make($request->all(), [
             'fbo_id'        => 'required|unique:fbos,fbo_id',
             'email'         => 'required|email|unique:users,email',
@@ -40,26 +40,25 @@ class FboController extends Controller
         }
 
         try {
-            // 2. TRANSACCIÓN DE BASE DE DATOS
             return DB::transaction(function () use ($request) {
                 
-                // A. Creamos los datos físicos (Persona)
+                // A. Creamos Persona (Físico)
                 $persona = Persona::create([
                     'nombres'   => $request->name,
                     'apellidos' => $request->last_name,
                     'ci'        => $request->dni,
                 ]);
 
-                // B. Creamos la cuenta de acceso (User) vinculada a la persona
+                // B. Creamos Usuario (Cuenta)
                 $user = User::create([
                     'persona_id' => $persona->id,
                     'name'       => $request->name . ' ' . $request->last_name,
                     'email'      => $request->email,
-                    'password'   => Hash::make('Forever123'), // Contraseña por defecto
+                    'password'   => Hash::make('Forever123'), // Contraseña inicial
                     'role'       => 'fbo',
                 ]);
 
-                // C. Creamos el perfil de distribuidor (FBO) vinculado al usuario
+                // C. Creamos FBO (Perfil de negocio)
                 $fbo = Fbo::create([
                     'user_id'       => $user->id,
                     'fbo_id'        => $request->fbo_id,
@@ -67,14 +66,14 @@ class FboController extends Controller
                 ]);
 
                 return response()->json([
-                    'message' => 'FBO y Usuario registrados correctamente',
+                    'message' => 'FBO registrado correctamente',
                     'data' => $fbo->load('user.persona')
                 ], 201);
             });
 
         } catch (Exception $e) {
             return response()->json([
-                'error' => 'Error crítico al procesar el registro',
+                'error' => 'Error crítico',
                 'message' => $e->getMessage()
             ], 500);
         }

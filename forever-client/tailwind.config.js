@@ -2,16 +2,10 @@
 export default {
   content: [
     "./index.html",
-    "./tienda.html", // ¡Clave! Así Tailwind pinta tu nueva tienda
-    "./main.js",
+    "./src/**/*.{vue,js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {
-      colors: {
-        'forever-yellow': '#FFC600', // El amarillo oficial (Supernova)
-        'forever-green': '#2F6432',  // El verde oscuro corporativo
-      }
-    },
+    extend: {},
   },
   plugins: [],
 }

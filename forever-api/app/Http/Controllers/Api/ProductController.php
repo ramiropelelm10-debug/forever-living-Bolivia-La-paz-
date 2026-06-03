@@ -8,16 +8,18 @@ use Illuminate\Http\Request;
 // Importaciones críticas para la seguridad profesional
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller implements HasMiddleware
 {
     /**
      * Activa el "candado" de seguridad de Sanctum para todo el controlador.
+     * 🔥 EXCLUIMOS 'index' y 'show' para que la tienda pública pueda ver el catálogo 🔥
      */
     public static function middleware(): array
     {
         return [
-            new Middleware('auth:sanctum')
+            (new Middleware('auth:sanctum'))->except(['index', 'show'])
         ];
     }
 
@@ -27,12 +29,21 @@ class ProductController extends Controller implements HasMiddleware
     public function index(Request $request)
     {
         $query = Product::query();
+        
         if ($request->filled('search')) {
             $searchTerm = '%' . $request->search . '%';
             $query->where('name', 'ilike', $searchTerm)
                   ->orWhere('sku', 'ilike', $searchTerm);
         }
-        return response()->json($query->orderBy('id', 'desc')->get(), 200);
+        
+        $productos = $query->orderBy('id', 'desc')->get()->map(function ($producto) {
+            // 🔥 TRUCO: Le pasamos 'imagen' a Vue para que lo lea sin problemas
+            // aunque en tu base de datos se llame 'foto_persona'
+            $producto->imagen = $producto->foto_persona;
+            return $producto;
+        });
+
+        return response()->json($productos, 200);
     }
 
     /**
@@ -40,19 +51,31 @@ class ProductController extends Controller implements HasMiddleware
      */
     public function store(Request $request)
     {
+        // 1. Validamos los datos (La imagen ahora es validada para evitar hackeos)
         $request->validate([
             'name'  => 'required|string',
             'sku'   => 'required|string|unique:products',
-            'stock' => 'required|integer',
+            'stock' => 'required|numeric',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:3048', // Max 3MB
         ]);
 
+        // 2. LA MAGIA DE LA IMAGEN: Guardamos en el disco duro
+        $imageUrl = null;
+        if ($request->hasFile('image') || $request->hasFile('imagen')) {
+            $file = $request->file('image') ? $request->file('image') : $request->file('imagen');
+            $path = $file->store('productos', 'public');
+            $imageUrl = url('storage/' . $path); // Genera: http://localhost:8000/storage/productos/foto.jpg
+        }
+
+        // 3. Guardamos en PostgreSQL
         $product = Product::create([
-            'name'         => $request->name,
-            'sku'          => $request->sku,
-            'stock'        => $request->stock,
-            'price_bs'     => $request->price_bs ?? $request->price ?? 0,
+            'name'         => $request->name ?? $request->nombre,
+            'sku'          => $request->sku ?? $request->code,
+            'stock'        => $request->stock ?? $request->cantidad,
+            'price_bs'     => $request->price ?? $request->precio ?? 0,
+            'category'     => $request->category ?? $request->categoria ?? 'General',
             'cc_value'     => $request->cc_value ?? 0,
-            'foto_persona' => $request->foto_persona ?? $request->image,
+            'foto_persona' => $imageUrl, // Guardamos la URL real
         ]);
 
         return response()->json($product, 201);
@@ -65,19 +88,36 @@ class ProductController extends Controller implements HasMiddleware
     {
         $product = Product::findOrFail($id);
 
+        // 1. Validamos (El SKU ignora su propio ID para que te deje guardar sin error)
         $request->validate([
             'name'  => 'required|string',
             'sku'   => 'required|string|unique:products,sku,' . $id,
-            'stock' => 'required|integer',
+            'stock' => 'required|numeric',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:3048',
         ]);
 
+        // 2. LA MAGIA DE LA IMAGEN: Si sube una nueva, la guardamos
+        if ($request->hasFile('image') || $request->hasFile('imagen')) {
+            // Opcional: Borrar la foto vieja del servidor para no acumular basura
+            // if ($product->foto_persona) {
+            //     $oldPath = str_replace(url('storage') . '/', '', $product->foto_persona);
+            //     Storage::disk('public')->delete($oldPath);
+            // }
+
+            $file = $request->file('image') ? $request->file('image') : $request->file('imagen');
+            $path = $file->store('productos', 'public');
+            $product->foto_persona = url('storage/' . $path); // Sobrescribimos la URL
+        }
+
+        // 3. Actualizamos en PostgreSQL
         $product->update([
-            'name'         => $request->name,
-            'sku'          => $request->sku,
-            'stock'        => $request->stock,
-            'price_bs'     => $request->price_bs ?? $request->price ?? $product->price_bs,
+            'name'         => $request->name ?? $request->nombre ?? $product->name,
+            'sku'          => $request->sku ?? $request->code ?? $product->sku,
+            'stock'        => $request->stock ?? $request->cantidad ?? $product->stock,
+            'price_bs'     => $request->price ?? $request->precio ?? $product->price_bs,
+            'category'     => $request->category ?? $request->categoria ?? $product->category,
             'cc_value'     => $request->cc_value ?? $product->cc_value,
-            'foto_persona' => $request->foto_persona ?? $request->image ?? $product->foto_persona,
+            // foto_persona ya se actualizó arriba si es que subió una nueva
         ]);
 
         return response()->json(['message' => 'Actualizado con éxito', 'data' => $product]);
@@ -86,8 +126,10 @@ class ProductController extends Controller implements HasMiddleware
     /**
      * Eliminar producto (Soft Delete).
      */
-    public function destroy(Product $product)
+    public function destroy($id)
     {
+        // Se busca el producto por ID, sin inyección implícita para evitar fallos si buscas por SKU
+        $product = Product::findOrFail($id);
         $product->delete();
         return response()->json(['message' => 'Movido a la papelera']);
     }

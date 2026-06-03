@@ -11,8 +11,14 @@ trim_trailing_whitespace = true
 [*.md]
 trim_trailing_whitespace = false
 
-[*.{yml,yaml}]
+# El estándar global para YAML y JSON es de 2 espacios
+[*.{yml,yaml,json}]
 indent_size = 2
 
-[compose.yaml]
+# 🔥 ESTÁNDAR FRONTEND: Vue, JS, HTML y CSS usan 2 espacios
+[*.{vue,js,jsx,ts,tsx,html,css,scss}]
+indent_size = 2
+
+# 🔥 ESTÁNDAR BACKEND: Laravel (PHP) respeta los 4 espacios globales
+[*.php]
 indent_size = 4
