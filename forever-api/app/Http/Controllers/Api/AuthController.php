@@ -15,9 +15,6 @@ use Carbon\Carbon;
 
 class AuthController extends Controller
 {
-    /**
-     * LOGIN: Genera OTP o salta si el dispositivo es de confianza
-     */
     public function login(Request $request)
     {
         $request->validate([
@@ -36,7 +33,6 @@ class AuthController extends Controller
             return response()->json(['message' => 'Cuenta pendiente de aprobación o desactivada.'], 403);
         }
 
-        // 🕵️ VERIFICAR DISPOSITIVO DE CONFIANZA
         if ($request->device_token && 
             $user->trusted_device_token === $request->device_token && 
             $user->trusted_until && 
@@ -49,7 +45,7 @@ class AuthController extends Controller
                     'id'           => $user->id,
                     'name'         => $user->name,
                     'email'        => $user->email,
-                    'role'         => $user->role,          // 🔥 ENVIADO: Para control de vistas en Vue (admin / inventario)
+                    'role'         => $user->role,
                     'tipo_usuario' => $user->tipo_usuario,
                 ],
                 'requires_otp' => false,
@@ -57,7 +53,6 @@ class AuthController extends Controller
             ]);
         }
 
-        // 🎲 GENERAR OTP Y ACTUALIZAR
         $otp = (string) rand(100000, 999999);
         
         DB::table('users')->where('id', $user->id)->update([
@@ -70,14 +65,11 @@ class AuthController extends Controller
             'message' => 'Código enviado correctamente',
             'requires_otp' => true,
             'email' => $user->email,
-            'role' => $user->role,                           // 🔥 ENVIADO: Por si el front necesita saber el rol antes de validar el OTP
+            'role' => $user->role,
             'code_debug' => $otp 
         ]);
     }
 
-    /**
-     * VERIFICAR OTP: Valida el código y puede crear la confianza
-     */
     public function verifyOtp(Request $request)
     {
         try {
@@ -100,20 +92,18 @@ class AuthController extends Controller
 
             $token = $user->createToken('forever_access_token')->plainTextToken;
             
-            // Construimos la respuesta limpia inyectando el rol del usuario
             $responsePayload = [
                 'token' => $token,
                 'user'  => [
                     'id'           => $user->id,
                     'name'         => $user->name,
                     'email'        => $user->email,
-                    'role'         => $user->role,          // 🔥 VITAL: El rol definitivo que leerá Vue al entrar exitosamente
+                    'role'         => $user->role,
                     'tipo_usuario' => $user->tipo_usuario,
                 ],
                 'message' => '¡Verificación exitosa!'
             ];
 
-            // 🔒 GUARDAR CONFIANZA SI MARCÓ EL CHECK
             if ($request->remember_device) {
                 $deviceToken = Str::random(60); 
                 $user->update([
@@ -136,9 +126,6 @@ class AuthController extends Controller
         }
     }
 
-    /**
-     * LOGOUT: Cierra sesión de Sanctum
-     */
     public function logout(Request $request)
     {
         if ($request->user()) {
@@ -147,9 +134,6 @@ class AuthController extends Controller
         return response()->json(['message' => 'Sesión cerrada']);
     }
 
-    /**
-     * REGISTRO: Solicitud de nuevo usuario
-     */
     public function registerRequest(Request $request)
     {
         $request->validate([
@@ -174,7 +158,7 @@ class AuthController extends Controller
                     'password'     => $request->password, 
                     'status'       => 'pendiente', 
                     'tipo_usuario' => $request->isFboRequest ? 'fbo' : 'cliente',
-                    'role'         => 'cliente',             // Por defecto nacen con rol base de cliente
+                    'role'         => 'cliente',
                 ]);
 
                 return response()->json(['message' => 'Solicitud enviada.'], 201);
@@ -184,9 +168,6 @@ class AuthController extends Controller
         }
     }
 
-    /**
-     * LOGIN FACE ID: Genera token directo si la IA biométrica aprueba el rostro en el frontend
-     */
     public function loginFaceId(Request $request)
     {
         $request->validate([
@@ -195,7 +176,6 @@ class AuthController extends Controller
 
         $user = User::where('email', trim($request->email))->first();
 
-        // Validaciones de seguridad
         if (!$user) {
             return response()->json(['message' => 'Usuario no encontrado.'], 404);
         }
@@ -204,7 +184,6 @@ class AuthController extends Controller
             return response()->json(['message' => 'Cuenta pendiente o desactivada.'], 403);
         }
 
-        // ¡Generamos el TOKEN REAL de Sanctum!
         $token = $user->createToken('forever_access_token')->plainTextToken;
 
         return response()->json([
@@ -218,5 +197,35 @@ class AuthController extends Controller
                 'tipo_usuario' => $user->tipo_usuario,
             ]
         ], 200);
+    }
+
+    // 🔥 ESTA ES LA FUNCIÓN NUESTRA QUE FALTABA 🔥
+    public function updateProfile(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'last_name' => 'nullable|string|max:255',
+        ]);
+
+        $user = $request->user();
+        
+        // 1. Actualizamos en la tabla users
+        $user->name = $request->name;
+        $user->save();
+
+        // 2. Actualizamos en la tabla personas (donde tienes guardado el apellido)
+        if ($user->persona_id) {
+            $persona = Persona::find($user->persona_id);
+            if ($persona) {
+                $persona->nombres = $request->name;
+                $persona->apellidos = $request->last_name;
+                $persona->save();
+            }
+        }
+
+        return response()->json([
+            'message' => 'Perfil actualizado correctamente',
+            'user' => $user
+        ]);
     }
 }

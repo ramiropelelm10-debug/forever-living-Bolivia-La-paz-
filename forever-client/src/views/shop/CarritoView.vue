@@ -72,7 +72,6 @@ const router = useRouter();
 const API_URL = 'http://localhost:8000/api';
 
 const procesarPagoPayPal = async () => {
-  // 1. VALIDACIÓN: ¿El usuario inició sesión?
   const token = localStorage.getItem('auth_token');
   if (!token) {
     return Swal.fire({
@@ -86,12 +85,15 @@ const procesarPagoPayPal = async () => {
     });
   }
 
-  // 2. VALIDACIÓN: Pedir datos de envío
-  const { value: datosEnvio } = await Swal.fire({
-    title: 'Datos de Envío',
+  // 🔥 AHORA PEDIMOS NIT Y NOMBRE PARA LA FACTURA 🔥
+  const { value: datosFactura } = await Swal.fire({
+    title: 'Datos de Facturación',
     html: `
-      <p class="text-sm text-gray-500 mb-4 font-sans">¿A dónde enviaremos tus productos?</p>
-      <input id="swal-dir" class="swal2-input font-sans text-sm" placeholder="Ej: Zona Obrajes, Calle 1, Nro 100">
+      <p class="text-sm text-gray-500 mb-4 font-sans">Ingresa tus datos para la factura y envío.</p>
+      <input id="swal-razon" class="swal2-input font-sans text-sm" placeholder="Nombre o Razón Social (Ej: Juan Pérez)">
+      <input id="swal-nit" type="number" class="swal2-input font-sans text-sm" placeholder="NIT / CI (Ej: 1234567)">
+      <hr class="my-4 border-gray-200">
+      <input id="swal-dir" class="swal2-input font-sans text-sm" placeholder="Dirección de envío">
       <input id="swal-tel" type="number" class="swal2-input font-sans text-sm" placeholder="Teléfono celular">
     `,
     focusConfirm: false,
@@ -100,20 +102,21 @@ const procesarPagoPayPal = async () => {
     cancelButtonText: 'Cancelar',
     confirmButtonColor: '#005A36',
     preConfirm: () => {
+      const razon_social = document.getElementById('swal-razon').value || 'Sin Nombre';
+      const nit_ci = document.getElementById('swal-nit').value || '0';
       const direccion = document.getElementById('swal-dir').value;
       const telefono = document.getElementById('swal-tel').value;
+      
       if (!direccion || !telefono) {
-        Swal.showValidationMessage('Por favor completa tu dirección y teléfono.');
+        Swal.showValidationMessage('Por favor completa al menos tu dirección y teléfono.');
       }
-      return { direccion, telefono };
+      return { razon_social, nit_ci, direccion, telefono };
     }
   });
 
-  if (!datosEnvio) return; // Si el usuario cancela, detenemos el proceso
+  if (!datosFactura) return;
 
-  // 3. 🔥 CONEXIÓN REAL CON LARAVEL Y PAYPAL 🔥
   try {
-    // Mostramos un mensaje de carga mientras el backend habla con PayPal
     Swal.fire({
       title: 'Conectando con PayPal...',
       html: 'Generando tu enlace de pago seguro.',
@@ -123,7 +126,12 @@ const procesarPagoPayPal = async () => {
       }
     });
 
-    // Hacemos la petición POST a la ruta de Laravel que creamos
+    const itemsParaEnviar = cart.value.map(item => ({
+        id: item.id,
+        quantity: item.quantity,
+        price_bs: item.price_bs
+    }));
+
     const response = await fetch(`${API_URL}/paypal/create`, {
       method: 'POST',
       headers: {
@@ -132,33 +140,30 @@ const procesarPagoPayPal = async () => {
         'Authorization': `Bearer ${token}` 
       },
       body: JSON.stringify({
-        // Enviamos el total del carrito (cartTotal) al backend
-        monto_total: cartTotal.value 
+        monto_total: cartTotal.value, 
+        total_cc: cartTotalCC.value, 
+        items: itemsParaEnviar,
+        // 🔥 ENVIAMOS EL NIT Y LA RAZÓN SOCIAL AL BACKEND
+        razon_social: datosFactura.razon_social,
+        nit_ci: datosFactura.nit_ci
       })
     });
 
     const data = await response.json();
 
     if (response.ok && data.status === 'CREATED' && data.links) {
-      // PayPal nos devuelve varios enlaces en la propiedad "links".
-      // Tenemos que buscar el enlace que dice "approve" (aprobar el pago).
       const linkParaPagar = data.links.find(link => link.rel === 'approve');
-      
       if (linkParaPagar) {
-        // Redirigimos al cliente a la página de inicio de sesión de PayPal
         window.location.href = linkParaPagar.href;
       } else {
         Swal.fire('Error', 'No se encontró el enlace de cobro de PayPal.', 'error');
       }
-      
     } else {
       Swal.fire('Error', 'No se pudo generar la orden de pago. Verifica tu conexión.', 'error');
-      console.error("Error de PayPal:", data);
     }
 
   } catch (error) {
     Swal.fire('Error', 'Problema de comunicación con el servidor.', 'error');
-    console.error("Error fatal:", error);
   }
 };
 </script>

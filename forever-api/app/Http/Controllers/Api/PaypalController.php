@@ -6,7 +6,10 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Srmklive\PayPal\Services\PayPal as PayPalClient;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache; 
 use App\Models\Venta; 
+use App\Models\ItemDeVenta; 
+use App\Models\Product;
 
 class PaypalController extends Controller
 {
@@ -19,13 +22,21 @@ class PaypalController extends Controller
         $monto = $request->monto_total ?? 10.00; 
         $cc = $request->total_cc ?? 0; 
         $userId = $request->user() ? $request->user()->id : 1;
+        
+        // 🔥 AHORA GUARDAMOS TODO: ITEMS, NIT Y RAZÓN SOCIAL EN LA CACHÉ 🔥
+        $datosCompra = [
+            'items'        => $request->items,
+            'razon_social' => $request->razon_social ?? 'Cliente de PayPal',
+            'nit_ci'       => $request->nit_ci ?? '0'
+        ];
+        
+        Cache::put('cart_' . $userId, $datosCompra, now()->addMinutes(30));
 
         $order = $provider->createOrder([
             "intent" => "CAPTURE",
             "purchase_units" => [
                 [
                     "reference_id" => "default",
-                    // 🔥 LA BÓVEDA: Guardamos el ID de usuario y los CC dentro de PayPal de forma segura
                     "custom_id" => $userId . '|' . $cc, 
                     "amount" => [
                         "currency_code" => "USD",
@@ -36,7 +47,6 @@ class PaypalController extends Controller
             ],
             "application_context" => [
                 "cancel_url" => url('/api/paypal/cancel'),
-                // Mandamos una URL limpiecita y elegante
                 "return_url" => url('/api/paypal/success') 
             ]
         ]);
@@ -55,24 +65,55 @@ class PaypalController extends Controller
         if (isset($response['status']) && $response['status'] == 'COMPLETED') {
             
             try {
-                // 1. 🔥 EL RECIBO OFICIAL: Sacamos el total EXACTO que PayPal reporta haber cobrado
                 $montoCobrado = $response['purchase_units'][0]['payments']['captures'][0]['amount']['value'] ?? 0;
-                
-                // 2. 🔥 ABRIMOS LA BÓVEDA: Sacamos el ID del cliente y los CC intactos
                 $customId = $response['purchase_units'][0]['custom_id'] ?? '1|0';
                 $datosSecretos = explode('|', $customId);
                 $userId = $datosSecretos[0] ?? 1;
                 $cc = $datosSecretos[1] ?? 0;
 
-                Venta::create([
+                // RECUPERAMOS LOS DATOS DE LA CACHÉ
+                $datosCompra = Cache::get('cart_' . $userId);
+                
+                $razonSocial = 'Pago verificado por PayPal';
+                $nitCi = '0';
+                $itemsCarrito = [];
+
+                if ($datosCompra) {
+                    $itemsCarrito = $datosCompra['items'] ?? [];
+                    $razonSocial  = $datosCompra['razon_social'] ?? 'Pago verificado por PayPal';
+                    $nitCi        = $datosCompra['nit_ci'] ?? '0';
+                }
+
+                // 🔥 CREAMOS LA VENTA CON EL NOMBRE Y NIT REALES 🔥
+                $venta = Venta::create([
                     'nro_factura'  => 'FAC-PP-' . strtoupper(uniqid()),
                     'user_id'      => $userId,
-                    'nit_ci'       => '0', 
-                    'razon_social' => 'Pago verificado por PayPal',
-                    'monto_total'  => $montoCobrado, // ¡PRECIO REAL GARANTIZADO!
+                    'nit_ci'       => $nitCi, 
+                    'razon_social' => $razonSocial,
+                    'monto_total'  => $montoCobrado, 
                     'monto_iva'    => $montoCobrado * 0.13, 
                     'total_cc'     => $cc,
                 ]);
+
+                if (!empty($itemsCarrito)) {
+                    foreach ($itemsCarrito as $item) {
+                        $producto = Product::find($item['id']);
+                        if ($producto) {
+                            ItemDeVenta::create([
+                                'venta_id'        => $venta->id,
+                                'product_id'      => $producto->id,
+                                'cantidad'        => $item['quantity'],
+                                'precio_unitario' => $producto->price_bs ?? $item['price_bs'],
+                                'subtotal'        => $item['quantity'] * ($producto->price_bs ?? $item['price_bs']),
+                            ]);
+
+                            if($producto->stock >= $item['quantity']){
+                                $producto->decrement('stock', $item['quantity']);
+                            }
+                        }
+                    }
+                    Cache::forget('cart_' . $userId);
+                }
 
                 return redirect('http://localhost:5173/pago-exitoso');
 

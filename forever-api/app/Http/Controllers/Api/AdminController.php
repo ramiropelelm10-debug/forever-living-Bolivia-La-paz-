@@ -11,14 +11,14 @@ use Exception;
 class AdminController extends Controller
 {
     /**
-     * Listar solicitudes de registro que están esperando aprobación
-     * (Alimenta la tabla de "Solicitudes")
+     * Obtiene y retorna una lista de las solicitudes de registro que se encuentran pendientes de aprobación,
+     * incluyendo la información personal asociada a cada usuario.
      */
     public function pendingRequests()
     {
         try {
             $requests = User::where('status', 'pendiente')
-                ->with('persona') // Si tienes relación con la tabla de datos personales
+                ->with('persona')
                 ->orderBy('created_at', 'desc')
                 ->get();
 
@@ -29,7 +29,8 @@ class AdminController extends Controller
     }
 
     /**
-     * Aprobar o Rechazar una solicitud inicial de registro
+     * Procesa la respuesta de un administrador a una solicitud de registro, actualizando 
+     * el estado del usuario a activo o rechazado según corresponda.
      */
     public function respond(Request $request, $id)
     {
@@ -40,7 +41,6 @@ class AdminController extends Controller
         try {
             $user = User::findOrFail($id);
             
-            // Si aprobamos, el estado pasa a 'activo' para que pueda loguearse
             if ($request->status === 'aprobado') {
                 $user->status = 'activo';
             } else {
@@ -59,14 +59,14 @@ class AdminController extends Controller
     }
 
     /**
-     * Listar todos los usuarios del sistema (Alimenta la tabla de "Usuarios")
-     * 🔥 EXCLUYE AL ADMIN ACTUAL Y A LAS SOLICITUDES PENDIENTES 🔥
+     * Recupera la lista de todos los usuarios registrados en el sistema, excluyendo al administrador 
+     * que realiza la consulta y a las cuentas que aún están pendientes de aprobación.
      */
     public function allUsers()
     {
         try {
             $users = User::where('id', '!=', Auth::id())
-                ->where('status', '!=', 'pendiente') // Filtro mágico aplicado
+                ->where('status', '!=', 'pendiente')
                 ->with('persona')
                 ->orderBy('id', 'desc')
                 ->get();
@@ -78,14 +78,14 @@ class AdminController extends Controller
     }
 
     /**
-     * Alternar estado: Activa o Desactiva una cuenta (Toggle)
+     * Alterna el estado de acceso de un usuario específico, permitiendo suspender temporalmente 
+     * una cuenta activa o reactivar una cuenta previamente suspendida.
      */
     public function toggleStatus($id)
     {
         try {
             $user = User::findOrFail($id);
 
-            // Alternamos entre activo e inactivo (Ideal para castigar o suspender cuentas)
             if ($user->status === 'activo') {
                 $user->status = 'inactivo';
             } else {
@@ -104,14 +104,14 @@ class AdminController extends Controller
     }
 
     /**
-     * Ascender un Cliente a rango FBO (👑)
+     * Modifica el rol de un usuario con perfil de cliente para otorgarle el rango de FBO, 
+     * asegurando que su cuenta permanezca activa durante el proceso.
      */
     public function promote($id)
     {
         try {
             $user = User::findOrFail($id);
             
-            // Cambiamos el tipo de usuario y aseguramos que esté activo
             $user->tipo_usuario = 'fbo'; 
             $user->status = 'activo'; 
             

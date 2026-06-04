@@ -4,10 +4,9 @@
     <div class="bg-[#005A36] text-white py-16 relative overflow-hidden">
       <div class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1616238618037-7f89766dbb72?auto=format&fit=crop&q=80')] opacity-10 bg-cover bg-center mix-blend-overlay"></div>
       <div class="max-w-7xl mx-auto px-6 lg:px-10 relative z-10 text-center">
-        <h1 class="font-serif italic font-black text-5xl mb-4">Catálogo de Productos</h1>
-        <p class="text-green-100 font-medium max-w-2xl mx-auto">Descubre nuestra exclusiva línea de productos naturales a base de Aloe Vera. Salud, nutrición y belleza para ti y tu familia.</p>
+        <h1 class="font-serif italic font-black text-5xl mb-4">{{ $t('tienda.titulo') }}</h1>
+        <p class="text-green-100 font-medium max-w-2xl mx-auto">{{ $t('tienda.subtitulo') }}</p>
         
-        <!-- 🔥 AVISO DE DESCUENTO FBO 🔥 -->
         <div v-if="userDiscount > 0" class="mt-6 inline-block bg-[#FFC600] text-[#005A36] px-6 py-2 rounded-full font-black text-xs uppercase tracking-widest shadow-lg animate-bounce">
           <i class="fas fa-star mr-2"></i> Tienes un {{ userDiscount }}% de descuento FBO aplicado
         </div>
@@ -24,14 +23,14 @@
       <div class="max-w-7xl mx-auto px-6 lg:px-10 mt-8 mb-10 flex flex-wrap gap-4 justify-center">
         <button 
           v-for="cat in categorias" 
-          :key="cat"
-          @click="categoriaActiva = cat"
-          :class="categoriaActiva === cat 
+          :key="cat.id"
+          @click="categoriaActiva = cat.id"
+          :class="categoriaActiva === cat.id 
             ? 'bg-[#FFC600] text-black shadow-md border-transparent' 
             : 'bg-white text-gray-500 hover:text-[#005A36] border-gray-200 hover:border-[#005A36]'"
           class="border px-6 py-2 rounded-full font-black text-[10px] uppercase tracking-widest transition-all"
         >
-          {{ cat }}
+          {{ $t(`tienda.filtros.${cat.id}`) }}
         </button>
       </div>
 
@@ -50,13 +49,12 @@
             </div>
             
             <div class="flex justify-between items-start mb-1">
-              <p class="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{{ product.categoria || 'Sin Categoría' }}</p>
+              <p class="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{{ product.categoria || $t('tienda.sin_categoria') }}</p>
               <p class="text-[9px] text-[#005A36] font-black uppercase tracking-widest bg-green-50 px-2 py-0.5 rounded">{{ product.cc_value }} CC</p>
             </div>
             
             <h3 class="font-black text-[#005A36] text-lg leading-tight mb-2">{{ product.name }}</h3>
             
-            <!-- 🔥 LÓGICA VISUAL DE PRECIOS CON DESCUENTO 🔥 -->
             <div class="mb-6">
               <p v-if="userDiscount > 0" class="text-[11px] text-gray-400 font-bold line-through mb-0.5">Bs. {{ parseFloat(product.price_bs).toFixed(2) }}</p>
               <p class="text-2xl font-black text-gray-900">
@@ -65,10 +63,9 @@
             </div>
           </div>
 
-          <!-- 🔥 Mandamos el producto y el descuento al carrito 🔥 -->
           <button @click="agregarAlCarrito(product)" :disabled="product.stock === 0" 
                   class="w-full bg-[#FAF9F6] border border-[#005A36]/20 text-[#005A36] group-hover:bg-[#005A36] group-hover:text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-            <i class="fas fa-shopping-cart"></i> {{ product.stock === 0 ? 'Sin Stock' : 'Añadir al carrito' }}
+            <i class="fas fa-shopping-cart"></i> {{ product.stock === 0 ? 'Sin Stock' : $t('tienda.btn_carrito') }}
           </button>
         </div>
 
@@ -77,7 +74,6 @@
       <div v-if="productosFiltrados.length === 0" class="text-center py-20">
         <i class="fas fa-box-open text-4xl text-gray-300 mb-4"></i>
         <h3 class="text-xl font-black text-gray-500">No hay productos disponibles</h3>
-        <p class="text-sm text-gray-400">Intenta seleccionando otra categoría.</p>
       </div>
 
     </div>
@@ -93,16 +89,25 @@ const API_URL = 'http://localhost:8000/api';
 const products = ref([]);
 const isLoading = ref(true);
 
-// 🔥 Variable para almacenar el descuento del usuario
 const userDiscount = ref(0); 
 
-const categorias = ['Todos', 'Bebidas', 'Nutrición', 'Cuidado Personal', 'Colmena', 'Combos'];
-const categoriaActiva = ref('Todos'); 
+// 🔥 Ajuste para que los botones de filtro usen las variables del i18n
+const categorias = [
+  { id: 'todos', nombre: 'Todos' },
+  { id: 'bebidas', nombre: 'Bebidas' },
+  { id: 'nutricion', nombre: 'Nutrición' },
+  { id: 'cuidado', nombre: 'Cuidado Personal' },
+  { id: 'colmena', nombre: 'Colmena' },
+  { id: 'combos', nombre: 'Combos' }
+];
+const categoriaActiva = ref('todos'); 
 
 const productosFiltrados = computed(() => {
   if (!Array.isArray(products.value)) return [];
-  if (categoriaActiva.value === 'Todos') return products.value;
-  return products.value.filter(product => product.categoria === categoriaActiva.value);
+  if (categoriaActiva.value === 'todos') return products.value;
+  // Ajuste para encontrar el nombre de la categoría en español para filtrar en tu base de datos
+  const catEncontrada = categorias.find(c => c.id === categoriaActiva.value);
+  return products.value.filter(product => product.categoria === catEncontrada.nombre);
 });
 
 const fetchProducts = async () => {
@@ -111,22 +116,18 @@ const fetchProducts = async () => {
     const headers = { 'Accept': 'application/json' };
     const token = localStorage.getItem('auth_token');
     
-    // 1. Cargar Productos
     const resProd = await fetch(`${API_URL}/products`, { headers });
     if (resProd.ok) {
       const data = await resProd.json();
       products.value = Array.isArray(data) ? data : (data.data || []);
     }
 
-    // 2. Si está logueado, verificar si es FBO y obtener su descuento
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
       const resUser = await fetch(`${API_URL}/user`, { headers });
       if (resUser.ok) {
         const user = await resUser.json();
-        // Verificamos si tiene el rol FBO y si trae la relación (ajusta 'fbo' a como se llame tu relación en Laravel)
         if (user.tipo_usuario === 'fbo') {
-           // Asignamos el descuento (por ejemplo 30%). Ajusta la ruta a la propiedad real de tu BD
            userDiscount.value = user.fbo?.discount_rate || 30; 
         }
       }
@@ -139,9 +140,7 @@ const fetchProducts = async () => {
 };
 
 const agregarAlCarrito = (product) => {
-  // 🔥 Le enviamos el producto y el descuento actual al cerebro del carrito
   addToCart(product, userDiscount.value);
-  
   Swal.fire({
     toast: true,
     position: 'top-end',

@@ -3,7 +3,7 @@
     <div class="max-w-5xl mx-auto px-6">
       
       <h2 class="font-serif italic font-black text-4xl text-[#005A36] mb-8 border-b-2 border-[#FFC600] inline-block pb-2">
-        Mi Panel
+        {{ $t('perfil.titulo') }}
       </h2>
 
       <div v-if="isLoading" class="flex justify-center py-20">
@@ -23,7 +23,7 @@
               <div>
                 <h3 class="text-3xl font-black mb-1">{{ userData.name }} {{ userData.last_name || '' }}</h3>
                 <p class="text-green-200 font-bold text-sm tracking-widest uppercase">
-                  <i class="fas fa-id-badge mr-1"></i> {{ userData.tipo_usuario || 'Cliente' }}
+                  <i class="fas fa-id-badge mr-1"></i> {{ userData.tipo_usuario === 'fbo' ? 'FBO' : $t('perfil.cliente') }}
                 </p>
               </div>
             </div>
@@ -42,19 +42,19 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           <div class="lg:col-span-1 bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
-            <h4 class="font-black text-slate-700 uppercase tracking-widest text-[11px] mb-6 border-b border-gray-100 pb-2">Datos Personales</h4>
+            <h4 class="font-black text-slate-700 uppercase tracking-widest text-[11px] mb-6 border-b border-gray-100 pb-2">{{ $t('perfil.datos_personales') }}</h4>
             
             <div class="space-y-4 mb-8">
               <div>
-                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Nombres</label>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">{{ $t('perfil.nombres') }}</label>
                 <input type="text" v-model="form.name" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 text-sm outline-none focus:ring-2 focus:ring-[#005A36]/20 focus:border-[#005A36] transition-all">
               </div>
               <div>
-                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Apellidos</label>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">{{ $t('perfil.apellidos') }}</label>
                 <input type="text" v-model="form.last_name" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 text-sm outline-none focus:ring-2 focus:ring-[#005A36]/20 focus:border-[#005A36] transition-all">
               </div>
               <div>
-                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Correo Electrónico</label>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">{{ $t('perfil.correo') }}</label>
                 <input type="email" v-model="form.email" readonly class="w-full px-4 py-3 bg-slate-100 border border-slate-200 rounded-xl font-bold text-slate-500 text-sm outline-none cursor-not-allowed">
               </div>
             </div>
@@ -77,7 +77,7 @@
           <div class="lg:col-span-2 bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
             <div class="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
               <h4 class="font-black text-slate-700 uppercase tracking-widest text-[11px]">
-                <i class="fas fa-shopping-bag text-[#005A36] mr-2"></i> Historial de Compras
+                <i class="fas fa-shopping-bag text-[#005A36] mr-2"></i> {{ $t('perfil.historial') }}
               </h4>
             </div>
 
@@ -85,18 +85,18 @@
               <table class="w-full text-left border-collapse">
                 <thead>
                   <tr class="bg-slate-50 text-[10px] uppercase tracking-widest text-slate-400">
-                    <th class="p-4 font-black rounded-l-xl">Fecha</th>
-                    <th class="p-4 font-black">Nro. Orden</th>
-                    <th class="p-4 font-black">Total</th>
+                    <th class="p-4 font-black rounded-l-xl">{{ $t('perfil.tabla_fecha') }}</th>
+                    <th class="p-4 font-black">{{ $t('perfil.tabla_orden') }}</th>
+                    <th class="p-4 font-black">{{ $t('perfil.tabla_total') }}</th>
                     <th v-if="userData.tipo_usuario === 'fbo'" class="p-4 font-black">CC Sumados</th>
-                    <th class="p-4 font-black text-center rounded-r-xl">Documentos</th>
+                    <th class="p-4 font-black text-center rounded-r-xl">{{ $t('perfil.tabla_docs') }}</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-if="compras.length === 0">
                     <td :colspan="userData.tipo_usuario === 'fbo' ? 5 : 4" class="p-10 text-center text-slate-400 font-medium">
                       <i class="fas fa-receipt text-3xl mb-3 block opacity-30"></i>
-                      Aún no has realizado ninguna compra en el sistema.
+                      {{ $t('perfil.sin_compras') }}
                     </td>
                   </tr>
                   
@@ -150,7 +150,6 @@ const cargarPerfilYCompras = async () => {
     const token = localStorage.getItem('auth_token');
     if (!token) return;
 
-    // 1. CARGAR DATOS DEL USUARIO
     const resUser = await fetch(`${API_URL}/user`, {
       headers: { 'Accept': 'application/json', 'Authorization': `Bearer ${token}` }
     });
@@ -159,11 +158,11 @@ const cargarPerfilYCompras = async () => {
       const data = await resUser.json();
       userData.value = data;
       form.value.name = data.name || '';
-      form.value.last_name = data.last_name || ''; 
+      // Si el backend nos manda la info combinada de la persona
+      form.value.last_name = data.persona?.apellidos || data.last_name || ''; 
       form.value.email = data.email || '';
     }
 
-    // 2. CARGAR EL HISTORIAL DE COMPRAS REAL DESDE LARAVEL
     const resSales = await fetch(`${API_URL}/my-sales`, {
       headers: { 'Accept': 'application/json', 'Authorization': `Bearer ${token}` }
     });
@@ -171,7 +170,6 @@ const cargarPerfilYCompras = async () => {
     if (resSales.ok) {
       compras.value = await resSales.json();
       
-      // Sumamos los CC si es FBO
       if (userData.value.tipo_usuario === 'fbo') {
         totalCcs.value = compras.value.reduce((acc, current) => acc + parseFloat(current.total_cc || 0), 0);
       }
@@ -188,7 +186,8 @@ const guardarCambios = async () => {
   isSaving.value = true;
   try {
     const token = localStorage.getItem('auth_token');
-    const res = await fetch(`${API_URL}/user/update-photo`, {
+    // 🔥 AHORA APUNTA A /user/update 🔥
+    const res = await fetch(`${API_URL}/user/update`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify({ name: form.value.name, last_name: form.value.last_name })
@@ -207,7 +206,6 @@ const guardarCambios = async () => {
   }
 };
 
-// FUNCIÓN PARA DESCARGAR FACTURA PDF
 const descargarPDF = async (ventaId) => {
   Swal.fire({ title: 'Generando PDF...', text: 'Por favor espera', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
   try {
@@ -218,7 +216,6 @@ const descargarPDF = async (ventaId) => {
     
     if (!res.ok) throw new Error('Error al generar el PDF');
     
-    // Descargamos el archivo como "Blob"
     const blob = await res.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -235,7 +232,6 @@ const descargarPDF = async (ventaId) => {
   }
 };
 
-// FUNCIÓN PARA VER RECIBO
 const verRecibo = (ventaId) => {
   Swal.fire({
     title: `Recibo de Orden #${ventaId}`,
@@ -245,12 +241,10 @@ const verRecibo = (ventaId) => {
   });
 };
 
-// FUNCIÓN PARA ACTIVAR FACE ID / HUELLA (WebAuthn)
 const configurarBiometria = async () => {
   try {
     const token = localStorage.getItem('auth_token');
     
-    // 1. Mostrar pantalla de escaneo
     Swal.fire({
       title: '<i class="fas fa-fingerprint text-blue-600 text-5xl mb-4"></i><br>Autenticación Biométrica',
       html: 'Conectando con el sensor de tu dispositivo (FaceID / Huella)...<br><br><span class="text-xs text-gray-400">Verificando hardware de seguridad...</span>',
@@ -259,7 +253,6 @@ const configurarBiometria = async () => {
       didOpen: () => Swal.showLoading()
     });
 
-    // 2. Pedimos las opciones al servidor Laravel WebAuthn
     const resOptions = await fetch(`${API_URL}/webauthn/keys/options`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }

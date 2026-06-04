@@ -1,92 +1,97 @@
 <template>
-  <div class="flex min-h-screen bg-[#F8F9FA] font-sans">
+  <div class="flex h-screen bg-[#F8F9FA] overflow-hidden font-sans">
     
-    <aside class="w-[280px] bg-[#2C421C] text-white flex flex-col fixed inset-y-0 left-0 shadow-2xl z-20">
+    <!-- 🌿 SIDEBAR PREMIUM FOREVER LIVING -->
+    <aside class="w-[260px] flex-shrink-0 relative bg-[#092615] shadow-2xl flex flex-col z-50">
       
-      <div class="flex flex-col items-center justify-center py-10 border-b border-white/10">
-        <i class="fab fa-envira text-5xl text-[#FFC600] mb-3"></i>
-        <h2 class="text-xl font-black tracking-widest uppercase text-white">Forever Living</h2>
-      </div>
+      <!-- Fondo de Sábila (Aloe Vera) -->
+      <div class="absolute inset-0 bg-[url('/images/sidebar-aloe-bg.png')] bg-cover bg-bottom opacity-40 mix-blend-overlay pointer-events-none"></div>
 
-      <nav class="flex-1 px-4 py-8 space-y-2 overflow-y-auto custom-scrollbar">
+      <div class="relative z-10 flex flex-col h-full">
         
-        <router-link to="/admin/catalogo" class="sidebar-link" active-class="sidebar-link-active">
-          <i class="fas fa-box w-6 text-center text-lg"></i> 
-          <span>Inventario</span>
-        </router-link>
+        <!-- LOGO DORADO -->
+        <div class="pt-10 pb-8 flex flex-col items-center justify-center">
+          <img src="/images/logo-forever-gold.png" alt="Forever Living" class="w-32 drop-shadow-2xl" />
+        </div>
 
-        <router-link v-if="userType === 'admin'" to="/admin/ventas" class="sidebar-link" active-class="sidebar-link-active">
-          <i class="fas fa-chart-line w-6 text-center text-lg"></i> 
-          <span>Ventas y Fiscal</span>
-        </router-link>
+        <!-- MENÚ DE NAVEGACIÓN -->
+        <nav class="flex-1 px-4 py-4 space-y-1 overflow-y-auto custom-scrollbar">
+          
+          <router-link to="/admin/catalogo" class="nav-link" active-class="nav-link-active">
+            <div class="w-8 flex justify-center"><i class="fas fa-home"></i></div>
+            <span class="ml-2 text-xs font-bold tracking-wide">Dashboard</span>
+          </router-link>
 
-        <router-link v-if="userType === 'admin'" to="/admin/clientes" class="sidebar-link" active-class="sidebar-link-active">
-          <i class="fas fa-users w-6 text-center text-lg"></i> 
-          <span>Clientes</span>
-        </router-link>
+          <router-link v-if="userType === 'admin'" to="/admin/ventas" class="nav-link" active-class="nav-link-active">
+            <div class="w-8 flex justify-center"><i class="fas fa-chart-line"></i></div>
+            <span class="ml-2 text-xs font-bold tracking-wide">Ventas y Fiscal</span>
+          </router-link>
 
-        <router-link v-if="userType === 'admin'" to="/admin/solicitudes" class="sidebar-link flex justify-between items-center" active-class="sidebar-link-active">
-          <div class="flex items-center gap-3">
-            <i class="fas fa-clipboard-list w-6 text-center text-lg"></i> 
-            <span>Solicitudes</span>
+          <router-link v-if="userType === 'admin'" to="/admin/clientes" class="nav-link" active-class="nav-link-active">
+            <div class="w-8 flex justify-center"><i class="fas fa-users"></i></div>
+            <span class="ml-2 text-xs font-bold tracking-wide">Clientes</span>
+          </router-link>
+
+          <router-link v-if="userType === 'admin'" to="/admin/solicitudes" class="nav-link flex items-center" active-class="nav-link-active">
+            <div class="w-8 flex justify-center"><i class="fas fa-clipboard-list"></i></div>
+            <span class="ml-2 text-xs font-bold tracking-wide">Solicitudes</span>
+<span class="ml-auto bg-[#FFC600] text-[#092615] text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">0</span>          </router-link>
+
+          <router-link v-if="userType === 'admin'" to="/admin/usuarios" class="nav-link" active-class="nav-link-active">
+            <div class="w-8 flex justify-center"><i class="fas fa-user-cog"></i></div>
+            <span class="ml-2 text-xs font-bold tracking-wide">Usuarios</span>
+          </router-link>
+
+          <router-link v-if="userType === 'admin'" to="/admin/fbo" class="nav-link" active-class="nav-link-active">
+            <div class="w-8 flex justify-center"><i class="fas fa-id-badge"></i></div>
+            <span class="ml-2 text-xs font-bold tracking-wide">Admin FBO</span>
+          </router-link>
+
+        </nav>
+
+        <!-- FOOTER SIDEBAR -->
+        <div class="p-6 mt-auto border-t border-white/10">
+          <router-link to="/admin/perfil" class="nav-link mb-4" active-class="nav-link-active">
+            <div class="w-8 flex justify-center"><i class="fas fa-cog"></i></div>
+            <span class="ml-2 text-xs font-bold tracking-wide">Configuración</span>
+          </router-link>
+          
+          <div class="text-[9px] text-white/50 leading-relaxed font-medium">
+            <p class="mb-2 italic">"Ayudando a las personas a vivir una vida mejor y más saludable."</p>
+            <p>© 2026 Forever Living Products Bolivia.<br>Todos los derechos reservados.</p>
           </div>
-          <span class="bg-[#FFC600] text-black text-[10px] px-2 py-0.5 rounded-full font-black">5</span>
-        </router-link>
-
-        <router-link v-if="userType === 'admin'" to="/admin/usuarios" class="sidebar-link" active-class="sidebar-link-active">
-          <i class="fas fa-user-cog w-6 text-center text-lg"></i> 
-          <span>Usuarios</span>
-        </router-link>
-
-        <router-link v-if="userType === 'admin'" to="/admin/fbo" class="sidebar-link" active-class="sidebar-link-active">
-          <i class="fas fa-id-card-alt w-6 text-center text-lg"></i> 
-          <span>Admin FBO</span>
-        </router-link>
-
-        <div class="my-6 border-t border-white/10"></div> 
-
-        <router-link to="/admin/perfil" class="sidebar-link" active-class="sidebar-link-active">
-          <i class="fas fa-cog w-6 text-center text-lg"></i> 
-          <span>Perfil Admin</span>
-        </router-link>
-        
-      </nav>
-
-      <div class="p-6 text-center border-t border-white/10 opacity-70">
-        <p class="text-[9px] font-black tracking-widest uppercase">© 2026 Forever Living</p>
-        <p class="text-[8px] font-bold tracking-wider text-slate-300">Products Bolivia</p>
+        </div>
       </div>
     </aside>
 
-    <div class="flex-1 ml-[280px] flex flex-col min-h-screen relative">
-      
-      <header class="bg-white px-10 py-5 flex justify-between items-center shadow-sm sticky top-0 z-10">
-        <div class="flex items-center gap-4">
-          <div>
-            <h1 class="text-2xl font-black text-[#2C421C] tracking-tighter uppercase">Gestión Forever</h1>
-            <p class="text-[10px] font-black text-[#b48a2d] uppercase tracking-widest mt-0.5">Sistema Administrativo Bolivia</p>
-          </div>
+    <!-- 📊 CONTENIDO CENTRAL -->
+    <div class="flex-1 flex flex-col min-h-screen relative overflow-hidden">
+      <!-- HEADER CENTRAL SUPERIOR -->
+      <header class="bg-white px-8 py-5 flex justify-between items-center shadow-sm z-10 border-b border-gray-100">
+        <div>
+          <h1 class="text-2xl font-black text-[#0A2617] tracking-tighter uppercase">Gestión Forever</h1>
+          <p class="text-[9px] font-black text-[#b48a2d] uppercase tracking-widest mt-0.5">Sistema Administrativo Bolivia</p>
         </div>
 
         <div class="flex items-center gap-4">
-          <button class="px-6 py-3 bg-[#4a5d23] text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#38471a] transition-all flex items-center gap-2 shadow-lg shadow-[#4a5d23]/20">
+          <button class="px-5 py-2.5 bg-[#f4f6f2] text-[#4a5d23] rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-[#e4ebd9] transition-all flex items-center gap-2">
             <i class="fas fa-file-excel"></i> Exportar Excel
           </button>
           
-          <button @click="cerrarSesion" class="px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all flex items-center gap-2">
+          <button @click="cerrarSesion" class="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all flex items-center gap-2">
             <i class="fas fa-sign-out-alt"></i> Cerrar Sesión
           </button>
 
-          <div class="w-11 h-11 rounded-full bg-[#f4f6f2] border border-slate-200 flex items-center justify-center text-[#4a5d23] ml-2">
+          <div class="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 ml-2">
             <i class="fas fa-user"></i>
           </div>
         </div>
       </header>
 
-      <main class="p-10 w-full max-w-7xl mx-auto">
+      <!-- ÁREA DE RENDERIZADO (CatalogView) -->
+      <main class="flex-1 overflow-x-hidden overflow-y-auto bg-[#F8F9FA] p-8">
         <router-view></router-view>
       </main>
-
     </div>
 
   </div>
@@ -99,22 +104,14 @@ import Swal from 'sweetalert2';
 import api from '../api.js'; 
 
 const router = useRouter();
-
-// 🔥 LEEMOS EL ROL DEL USUARIO
-// Esto activa los v-if del menú. Si es 'inventario', se ocultan las demás rutas.
 const userType = ref(localStorage.getItem('userType') || 'admin');
 
-// ==========================================
-// FUNCIÓN PARA MATAR AL FANTASMA DEL LOGOUT
-// ==========================================
 const cerrarSesion = async () => {
   Swal.fire({
     title: 'Cerrando sesión...',
     text: 'Desconectando de forma segura',
     allowOutsideClick: false,
-    didOpen: () => {
-      Swal.showLoading();
-    }
+    didOpen: () => { Swal.showLoading(); }
   });
 
   try {
@@ -125,8 +122,6 @@ const cerrarSesion = async () => {
 
   localStorage.removeItem('auth_token');
   localStorage.removeItem('userType');
-
-  // Recarga forzada
   window.location.href = '/admin-login'; 
 };
 </script>
@@ -134,25 +129,15 @@ const cerrarSesion = async () => {
 <style scoped>
 @reference "tailwindcss";
 
-/* 🎨 BASE PARA LOS BOTONES DEL SIDEBAR */
-.sidebar-link {
-  @apply flex items-center gap-3 px-5 py-4 mb-2 rounded-[14px] text-[11px] font-black uppercase tracking-widest text-white/70 hover:bg-white/10 hover:text-white transition-all duration-300 cursor-pointer;
+.nav-link {
+  @apply flex items-center px-4 py-3 text-white/60 rounded-xl transition-all duration-300 hover:bg-white/10 hover:text-white mb-1 cursor-pointer;
 }
 
-/* 🎨 ESTILO CUANDO ESTÁ ACTIVO (Boton Blanco con Letras Verdes como el Mockup) */
-.sidebar-link-active {
-  @apply bg-white text-[#2C421C] hover:bg-white hover:text-[#2C421C] shadow-lg shadow-black/10;
+.nav-link-active {
+  @apply bg-[#D4AF37] text-white shadow-lg shadow-[#D4AF37]/20 hover:bg-[#C5A028];
 }
 
-/* 🎨 ESTILIZAR LA BARRA DE SCROLL (Por si hay muchos módulos) */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 5px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 10px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
 </style>

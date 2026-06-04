@@ -12,11 +12,11 @@ use Exception;
 class ClienteController extends Controller
 {
     /**
-     * Muestra la lista de clientes vinculados a su información personal
+     * Recupera el listado general de usuarios que poseen el rol de cliente, 
+     * incluyendo los detalles de su información personal asociada.
      */
     public function index()
     {
-        // Traemos usuarios que son específicamente de tipo 'cliente' con su data de persona
         $clientes = User::where('tipo_usuario', 'cliente')
             ->with('persona')
             ->orderBy('id', 'desc')
@@ -26,7 +26,8 @@ class ClienteController extends Controller
     }
 
     /**
-     * Guarda un nuevo cliente siguiendo la lógica: Persona -> User
+     * Gestiona la creación de un nuevo cliente mediante una transacción de base de datos,
+     * registrando primero el perfil personal y luego asociándolo a una nueva cuenta de acceso activa.
      */
     public function store(Request $request)
     {
@@ -34,15 +35,13 @@ class ClienteController extends Controller
             'name'      => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
             'email'     => 'required|email|unique:users,email',
-            'dni'       => 'required|unique:personas,ci', // CI debe ser único en la tabla personas
+            'dni'       => 'required|unique:personas,ci',
             'password'  => 'required|min:6',
         ]);
 
         try {
-            // Usamos una transacción para asegurar que no se cree uno sin el otro
             return DB::transaction(function () use ($request) {
                 
-                // 1. Primero creamos el perfil humano (Persona)
                 $persona = Persona::create([
                     'nombres'   => $request->name,
                     'apellidos' => $request->last_name,
@@ -51,15 +50,13 @@ class ClienteController extends Controller
                     'correo'    => $request->email,
                 ]);
 
-                // 2. Creamos la cuenta de acceso vinculada (User)
-                // NOTA: Pasamos el password plano porque el modelo User ya tiene el cast 'hashed'
                 $user = User::create([
                     'persona_id'   => $persona->id,
                     'name'         => $request->name . ' ' . $request->last_name,
                     'email'        => $request->email,
                     'password'     => $request->password, 
                     'tipo_usuario' => 'cliente',
-                    'status'       => 'activo', // Nace activo porque lo crea el Admin
+                    'status'       => 'activo',
                     'nit_ci'       => $request->dni,
                 ]);
 
