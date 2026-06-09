@@ -1,81 +1,149 @@
 <template>
-  <div class="bg-[#FAF9F6] min-h-screen pb-20">
+  <div class="bg-[#F8F9FA] min-h-screen pb-20">
     
-    <div class="bg-[#005A36] text-white py-16 relative overflow-hidden">
-      <div class="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1616238618037-7f89766dbb72?auto=format&fit=crop&q=80')] opacity-10 bg-cover bg-center mix-blend-overlay"></div>
-      <div class="max-w-7xl mx-auto px-6 lg:px-10 relative z-10 text-center">
-        <h1 class="font-serif italic font-black text-5xl mb-4">{{ $t('tienda.titulo') }}</h1>
-        <p class="text-green-100 font-medium max-w-2xl mx-auto">{{ $t('tienda.subtitulo') }}</p>
+    <!-- HERO SECTION (Banner principal) -->
+    <div class="relative bg-[#002B19] pt-24 pb-32 px-6 lg:px-10 overflow-hidden min-h-[480px] flex items-center">
+      
+      <!-- FONDO DE HOJAS CUBRIENDO EL 100% DE LA PANTALLA -->
+      <div class="absolute inset-0 w-full h-full bg-cover bg-center md:bg-right" style="background-image: url('/images/hero-fondo.png');"></div>
+      
+      <!-- DEGRADADO SUAVE (Verde sólido a la izquierda, desvaneciéndose a la derecha) -->
+      <div class="absolute inset-0 bg-gradient-to-r from-[#002B19] via-[#002B19]/95 md:via-[#002B19]/60 to-transparent"></div>
+      
+      <div class="max-w-7xl mx-auto w-full relative z-10 flex items-center justify-between h-full">
         
-        <div v-if="userDiscount > 0" class="mt-6 inline-block bg-[#FFC600] text-[#005A36] px-6 py-2 rounded-full font-black text-xs uppercase tracking-widest shadow-lg animate-bounce">
-          <i class="fas fa-star mr-2"></i> Tienes un {{ userDiscount }}% de descuento FBO aplicado
+        <!-- TEXTOS A LA IZQUIERDA -->
+        <div class="w-full md:w-3/5 text-left pt-4">
+          <h1 class="text-white text-5xl md:text-[5.5rem] font-serif italic font-bold leading-[1.05] tracking-tight drop-shadow-md">
+            Catálogo de <br>
+            <span class="text-[#FFC600] font-serif italic">Productos</span>
+          </h1>
+          
+          <!-- Línea amarilla debajo del título -->
+          <div class="w-20 h-[2px] bg-[#FFC600] mt-5 mb-6 shadow-sm"></div>
+          
+          <p class="text-white/95 text-sm md:text-[15px] max-w-[420px] font-medium leading-relaxed drop-shadow-sm">
+            Descubre nuestra exclusiva línea de productos naturales a base de Aloe Vera. Salud, nutrición y belleza para ti y tu familia.
+          </p>
+          
+          <div v-if="userDiscount > 0" class="mt-8 inline-flex items-center bg-[#FFC600] text-[#002B19] px-6 py-2.5 rounded-full font-black text-xs uppercase tracking-widest shadow-lg">
+            <i class="fas fa-star mr-2"></i> Tienes un {{ userDiscount }}% de descuento FBO
+          </div>
+        </div>
+
+      </div>
+
+      <!-- IMAGEN DE PRODUCTOS (Pegada al borde inferior absoluto) -->
+      <img src="/images/hero-productos-madera.png" alt="Productos Forever" class="absolute bottom-0 right-0 md:right-[5%] z-10 h-[80%] md:h-[105%] w-auto object-contain object-bottom pointer-events-none drop-shadow-[0_20px_20px_rgba(0,0,0,0.4)]" />
+    </div>
+
+    <!-- TARJETA FLOTANTE DE BENEFICIOS -->
+    <div class="max-w-[1000px] mx-auto px-6 relative z-20 -mt-10">
+      <div class="bg-white rounded-[2rem] shadow-[0_15px_40px_rgba(0,0,0,0.08)] py-4 px-6 md:px-12 flex flex-wrap justify-between items-center border border-gray-100">
+        
+        <div class="flex items-center gap-3 py-2 w-full md:w-auto justify-center">
+          <i class="fas fa-leaf text-[#002B19] text-[22px] opacity-90"></i>
+          <div class="flex flex-col leading-tight">
+            <span class="text-[9px] text-gray-500 font-bold uppercase tracking-[0.1em]">Ingredientes</span>
+            <span class="text-[11px] text-[#002B19] font-black uppercase tracking-wide">Naturales</span>
+          </div>
+        </div>
+        
+        <div class="hidden md:block w-px h-8 bg-gray-200"></div>
+        
+        <div class="flex items-center gap-3 py-2 w-full md:w-auto justify-center">
+          <i class="fas fa-award text-[#002B19] text-[22px] opacity-90"></i>
+          <div class="flex flex-col leading-tight">
+            <span class="text-[9px] text-gray-500 font-bold uppercase tracking-[0.1em]">Calidad</span>
+            <span class="text-[11px] text-[#002B19] font-black uppercase tracking-wide">Garantizada</span>
+          </div>
+        </div>
+        
+        <div class="hidden md:block w-px h-8 bg-gray-200"></div>
+        
+        <div class="flex items-center gap-3 py-2 w-full md:w-auto justify-center">
+          <i class="fas fa-heart text-[#002B19] text-[22px] opacity-90"></i>
+          <div class="flex flex-col leading-tight">
+            <span class="text-[9px] text-gray-500 font-bold uppercase tracking-[0.1em]">Bienestar para</span>
+            <span class="text-[11px] text-[#002B19] font-black uppercase tracking-wide">Toda la familia</span>
+          </div>
+        </div>
+        
+        <div class="hidden md:block w-px h-8 bg-gray-200"></div>
+        
+        <div class="flex items-center gap-3 py-2 w-full md:w-auto justify-center">
+          <i class="fas fa-shield-alt text-[#002B19] text-[22px] opacity-90"></i>
+          <div class="flex flex-col leading-tight">
+            <span class="text-[9px] text-gray-500 font-bold uppercase tracking-[0.1em]">Confianza</span>
+            <span class="text-[11px] text-[#002B19] font-black uppercase tracking-wide">Desde 1978</span>
+          </div>
         </div>
       </div>
     </div>
 
+    <!-- EL RESTO DE TU CÓDIGO (FILTROS Y PRODUCTOS) SE MANTIENE IGUAL -->
     <div v-if="isLoading" class="flex flex-col items-center justify-center py-20">
-      <i class="fas fa-circle-notch fa-spin text-4xl text-[#005A36] mb-4"></i>
+      <i class="fas fa-circle-notch fa-spin text-4xl text-[#002B19] mb-4"></i>
       <p class="font-black text-slate-400 uppercase tracking-widest text-xs">Cargando catálogo...</p>
     </div>
 
     <div v-else>
-      
-      <div class="max-w-7xl mx-auto px-6 lg:px-10 mt-8 mb-10 flex flex-wrap gap-4 justify-center">
+      <div class="max-w-7xl mx-auto px-6 lg:px-10 mt-16 mb-10 flex flex-wrap justify-center gap-4">
         <button 
           v-for="cat in categorias" 
           :key="cat.id"
           @click="categoriaActiva = cat.id"
           :class="categoriaActiva === cat.id 
-            ? 'bg-[#FFC600] text-black shadow-md border-transparent' 
-            : 'bg-white text-gray-500 hover:text-[#005A36] border-gray-200 hover:border-[#005A36]'"
-          class="border px-6 py-2 rounded-full font-black text-[10px] uppercase tracking-widest transition-all"
+            ? 'bg-[#002B19] text-white shadow-md' 
+            : 'bg-white text-gray-600 border border-gray-200 hover:border-[#002B19] hover:text-[#002B19]'"
+          class="px-8 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.15em] transition-colors"
         >
-          {{ $t(`tienda.filtros.${cat.id}`) }}
+          {{ cat.nombre }}
         </button>
       </div>
 
-      <div class="max-w-7xl mx-auto px-6 lg:px-10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-        
-        <div v-for="product in productosFiltrados" :key="product.id" class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hover:shadow-xl transition-all group relative flex flex-col justify-between animate-in fade-in zoom-in-95 duration-300">
-          
+      <div class="max-w-7xl mx-auto px-6 lg:px-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div v-for="product in productosFiltrados" :key="product.id" class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 hover:shadow-xl transition-all group relative flex flex-col justify-between">
           <span v-if="product.stock === 0" class="absolute top-4 left-4 bg-red-100 text-red-800 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full z-10">Agotado</span>
           <span v-else-if="product.stock < 20" class="absolute top-4 left-4 bg-amber-100 text-amber-800 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full z-10">Poco Stock</span>
+          
+          <button class="absolute top-4 right-4 text-gray-300 hover:text-red-500 transition-colors z-10">
+            <i class="far fa-heart text-xl"></i>
+          </button>
 
           <div>
-            <div class="h-48 w-full flex items-center justify-center mb-6 overflow-hidden relative">
-              <img :src="product.foto_persona || 'https://images.unsplash.com/photo-1629198725656-74b830d1fc0d?auto=format&fit=crop&q=80&w=400'" 
+            <div class="h-48 w-full flex items-center justify-center mb-6 overflow-hidden relative p-2">
+              <img :src="product.foto_persona || '/images/cat-aloe.png'" 
                    :alt="product.name" 
-                   class="object-contain h-full group-hover:scale-110 transition-transform duration-500">
+                   class="max-h-full object-contain group-hover:scale-110 transition-transform duration-500">
             </div>
             
-            <div class="flex justify-between items-start mb-1">
-              <p class="text-[9px] text-gray-400 font-bold uppercase tracking-widest">{{ product.categoria || $t('tienda.sin_categoria') }}</p>
-              <p class="text-[9px] text-[#005A36] font-black uppercase tracking-widest bg-green-50 px-2 py-0.5 rounded">{{ product.cc_value }} CC</p>
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-[9px] text-gray-400 font-bold uppercase tracking-[0.1em]">{{ product.categoria || 'Sin Categoría' }}</span>
+              <span class="text-[10px] font-black text-[#002B19] bg-green-50 px-2 py-1 rounded-md">{{ product.cc_value }} CC</span>
             </div>
             
-            <h3 class="font-black text-[#005A36] text-lg leading-tight mb-2">{{ product.name }}</h3>
+            <h3 class="font-black text-[#002B19] text-lg leading-tight mb-2">{{ product.name }}</h3>
             
             <div class="mb-6">
               <p v-if="userDiscount > 0" class="text-[11px] text-gray-400 font-bold line-through mb-0.5">Bs. {{ parseFloat(product.price_bs).toFixed(2) }}</p>
-              <p class="text-2xl font-black text-gray-900">
+              <p class="text-xl font-black text-gray-900">
                 Bs. {{ (product.price_bs - (product.price_bs * (userDiscount / 100))).toFixed(2) }}
               </p>
             </div>
           </div>
 
           <button @click="agregarAlCarrito(product)" :disabled="product.stock === 0" 
-                  class="w-full bg-[#FAF9F6] border border-[#005A36]/20 text-[#005A36] group-hover:bg-[#005A36] group-hover:text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-            <i class="fas fa-shopping-cart"></i> {{ product.stock === 0 ? 'Sin Stock' : $t('tienda.btn_carrito') }}
+                  class="w-full border border-[#002B19]/20 text-[#002B19] font-black text-[10px] uppercase tracking-[0.1em] py-3 rounded-full hover:bg-[#002B19] hover:text-white hover:border-[#002B19] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+            <i class="fas fa-shopping-cart"></i> {{ product.stock === 0 ? 'Sin Stock' : 'Añadir al carrito' }}
           </button>
         </div>
-
       </div>
       
       <div v-if="productosFiltrados.length === 0" class="text-center py-20">
         <i class="fas fa-box-open text-4xl text-gray-300 mb-4"></i>
         <h3 class="text-xl font-black text-gray-500">No hay productos disponibles</h3>
       </div>
-
     </div>
   </div>
 </template>
@@ -88,10 +156,8 @@ import { addToCart } from '../../store/cart';
 const API_URL = 'http://localhost:8000/api';
 const products = ref([]);
 const isLoading = ref(true);
-
 const userDiscount = ref(0); 
 
-// 🔥 Ajuste para que los botones de filtro usen las variables del i18n
 const categorias = [
   { id: 'todos', nombre: 'Todos' },
   { id: 'bebidas', nombre: 'Bebidas' },
@@ -105,7 +171,6 @@ const categoriaActiva = ref('todos');
 const productosFiltrados = computed(() => {
   if (!Array.isArray(products.value)) return [];
   if (categoriaActiva.value === 'todos') return products.value;
-  // Ajuste para encontrar el nombre de la categoría en español para filtrar en tu base de datos
   const catEncontrada = categorias.find(c => c.id === categoriaActiva.value);
   return products.value.filter(product => product.categoria === catEncontrada.nombre);
 });
@@ -133,7 +198,7 @@ const fetchProducts = async () => {
       }
     }
   } catch (error) {
-    console.error('Error de red al cargar el catálogo:', error);
+    console.error('Error:', error);
   } finally {
     isLoading.value = false;
   }
