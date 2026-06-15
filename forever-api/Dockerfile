@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
     unzip \
     libpq-dev \
     libzip-dev
-
+    
 # 3. Limpiar caché de instalaciones para que el servidor sea más rápido
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
