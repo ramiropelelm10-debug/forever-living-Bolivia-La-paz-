@@ -1,25 +1,20 @@
 <template>
   <div class="bg-[#F8F9FA] min-h-screen pb-20">
     
-    <!-- HERO SECTION (Banner principal) -->
     <div class="relative bg-[#002B19] pt-24 pb-32 px-6 lg:px-10 overflow-hidden min-h-[480px] flex items-center">
       
-      <!-- FONDO DE HOJAS CUBRIENDO EL 100% DE LA PANTALLA -->
       <div class="absolute inset-0 w-full h-full bg-cover bg-center md:bg-right" style="background-image: url('/images/hero-fondo.png');"></div>
       
-      <!-- DEGRADADO SUAVE (Verde sólido a la izquierda, desvaneciéndose a la derecha) -->
       <div class="absolute inset-0 bg-gradient-to-r from-[#002B19] via-[#002B19]/95 md:via-[#002B19]/60 to-transparent"></div>
       
       <div class="max-w-7xl mx-auto w-full relative z-10 flex items-center justify-between h-full">
         
-        <!-- TEXTOS A LA IZQUIERDA -->
         <div class="w-full md:w-3/5 text-left pt-4">
           <h1 class="text-white text-5xl md:text-[5.5rem] font-serif italic font-bold leading-[1.05] tracking-tight drop-shadow-md">
             Catálogo de <br>
             <span class="text-[#FFC600] font-serif italic">Productos</span>
           </h1>
           
-          <!-- Línea amarilla debajo del título -->
           <div class="w-20 h-[2px] bg-[#FFC600] mt-5 mb-6 shadow-sm"></div>
           
           <p class="text-white/95 text-sm md:text-[15px] max-w-[420px] font-medium leading-relaxed drop-shadow-sm">
@@ -33,11 +28,9 @@
 
       </div>
 
-      <!-- IMAGEN DE PRODUCTOS (Pegada al borde inferior absoluto) -->
       <img src="/images/hero-productos-madera.png" alt="Productos Forever" class="absolute bottom-0 right-0 md:right-[5%] z-10 h-[80%] md:h-[105%] w-auto object-contain object-bottom pointer-events-none drop-shadow-[0_20px_20px_rgba(0,0,0,0.4)]" />
     </div>
 
-    <!-- TARJETA FLOTANTE DE BENEFICIOS -->
     <div class="max-w-[1000px] mx-auto px-6 relative z-20 -mt-10">
       <div class="bg-white rounded-[2rem] shadow-[0_15px_40px_rgba(0,0,0,0.08)] py-4 px-6 md:px-12 flex flex-wrap justify-between items-center border border-gray-100">
         
@@ -81,7 +74,6 @@
       </div>
     </div>
 
-    <!-- EL RESTO DE TU CÓDIGO (FILTROS Y PRODUCTOS) SE MANTIENE IGUAL -->
     <div v-if="isLoading" class="flex flex-col items-center justify-center py-20">
       <i class="fas fa-circle-notch fa-spin text-4xl text-[#002B19] mb-4"></i>
       <p class="font-black text-slate-400 uppercase tracking-widest text-xs">Cargando catálogo...</p>
@@ -153,7 +145,7 @@ import { ref, computed, onMounted } from 'vue';
 import Swal from 'sweetalert2';
 import { addToCart } from '../../store/cart'; 
 
-const API_URL = 'http://localhost:8000/api';
+const API_URL = 'https://forever-api-e5zr.onrender.com/api';
 const products = ref([]);
 const isLoading = ref(true);
 const userDiscount = ref(0); 

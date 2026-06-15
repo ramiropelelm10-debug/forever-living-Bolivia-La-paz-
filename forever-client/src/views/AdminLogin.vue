@@ -104,7 +104,7 @@ const password = ref('');
 const otpCode = ref('');
 const requiresOTP = ref(false); 
 const isLoading = ref(false);
-const API_URL = 'http://localhost:8000/api';
+const API_URL = 'https://forever-api-e5zr.onrender.com/api';
 
 const mostrandoScanner = ref(false);
 const videoScannerRef = ref(null);

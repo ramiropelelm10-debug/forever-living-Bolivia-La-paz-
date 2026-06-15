@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'http://localhost:8000/api',
+    // 🔥 AQUÍ ESTÁ LA MAGIA: Apuntamos tu frontend directamente a la nube 🔥
+    baseURL: 'https://forever-api-e5zr.onrender.com/api',
     headers: {
         'Accept': 'application/json'
     }
