@@ -1,7 +1,7 @@
 # 1. Usar imagen oficial de PHP con Apache
 FROM php:8.3-apache
 
-# 2. Instalar herramientas y drivers para PostgreSQL
+# 2. Instalar herramientas y drivers para PostgreSQL y la librería ZIP
 RUN apt-get update && apt-get install -y \
     git \
     curl \
@@ -10,12 +10,13 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     zip \
     unzip \
-    libpq-dev
+    libpq-dev \
+    libzip-dev
 
-# 3. Limpiar caché de instalaciones
+# 3. Limpiar caché de instalaciones para que el servidor sea más rápido
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# 4. Instalar extensiones de PHP (Especialmente pdo_pgsql para tu base de datos)
+# 4. Instalar extensiones de PHP (pdo_pgsql para BD y zip para Composer)
 RUN docker-php-ext-install pdo pdo_pgsql mbstring exif pcntl bcmath gd zip
 
 # 5. Encender el motor de rutas de Apache (Vital para Laravel)
