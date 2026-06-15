@@ -1,7 +1,6 @@
 <template>
   <div class="space-y-8 animate-in fade-in duration-500 relative max-w-7xl mx-auto">
     
-    <!-- BARRA DE BÚSQUEDA Y NUEVO PRODUCTO -->
     <div class="flex flex-col md:flex-row justify-between items-center gap-4">
       <div class="relative w-full md:w-96 shadow-sm">
         <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
@@ -22,7 +21,6 @@
       </div>
     </div>
 
-    <!-- TARJETAS DE KPIs -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
       <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center group relative overflow-hidden">
         <div class="absolute -right-4 -top-4 w-24 h-24 bg-green-50/50 rounded-full blur-xl group-hover:scale-110 transition-transform"></div>
@@ -82,7 +80,6 @@
       </div>
     </div>
 
-    <!-- CATEGORÍAS 3D FLOTANTES -->
     <div class="mb-10">
       <div class="flex justify-between items-end mb-12">
         <h4 class="text-xs font-black text-slate-800 uppercase tracking-widest">Categorías</h4>
@@ -94,12 +91,10 @@
         <div v-for="cat in categorias" :key="cat.nombre" 
              @click="seleccionarCategoria(cat.nombre)"
              :class="['bg-white rounded-2xl p-4 shadow-sm border relative flex flex-col items-center justify-end h-28 hover:shadow-md transition-all cursor-pointer group',
-                      selectedCategory === cat.nombre ? 'border-[#005A36] bg-green-50/20' : 'border-slate-50']">
+                       selectedCategory === cat.nombre ? 'border-[#005A36] bg-green-50/20' : 'border-slate-50']">
           
-          <!-- Imagen Flotante 3D (Solo para las que descargaste) -->
           <img v-if="cat.img" :src="cat.img" class="absolute -top-12 h-24 object-contain drop-shadow-xl group-hover:-translate-y-2 transition-transform duration-300" :alt="cat.nombre">
           
-          <!-- Icono de Reemplazo (Para las que faltan) -->
           <div v-else class="absolute -top-8 w-16 h-16 bg-slate-50 rounded-full border-4 border-white shadow-sm flex items-center justify-center text-2xl text-slate-300 group-hover:-translate-y-2 transition-transform duration-300">
             <i :class="cat.icono"></i>
           </div>
@@ -111,7 +106,6 @@
       </div>
     </div>
 
-    <!-- TABLA LIMPIA Y MODERNA -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
       <div class="p-5 border-b border-slate-50 flex justify-between items-center">
          <h4 class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Inventario de Productos</h4>
@@ -161,7 +155,7 @@
               <td class="p-4 font-mono text-slate-500 text-xs text-center">{{ prod.sku || prod.codigo || prod.code || 'N/A' }}</td>
               <td class="p-4 text-center">
                  <span class="text-[10px] font-bold text-[#005A36]">
-                   {{ prod.categoria || prod.category || 'General' }}
+                    {{ prod.categoria || prod.category || 'General' }}
                  </span>
               </td>
               <td class="p-4 font-black text-[#0A2617] text-right">{{ parseFloat(prod.price_bs || prod.precio || prod.price || 0).toFixed(2) }}</td>
@@ -195,7 +189,6 @@
       </div>
     </div>
 
-    <!-- MODAL (Oculto) -->
     <div v-if="mostrarModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
       <div class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200">
         
@@ -209,7 +202,6 @@
         </div>
 
         <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
-          <!-- Formulario interno igual que antes -->
           <div class="md:col-span-2 flex items-center gap-4 p-4 border border-slate-100 bg-slate-50 rounded-2xl">
             <div class="w-20 h-20 rounded-xl border-2 border-dashed border-slate-300 flex items-center justify-center bg-white overflow-hidden shrink-0">
               <img v-if="imagenPreview" :src="imagenPreview" class="w-full h-full object-cover">
@@ -297,10 +289,10 @@ const estaCargando = ref(true);
 const obtenerProductos = async () => {
   try {
     estaCargando.value = true;
-    const respuesta = await api.get('/products'); 
+    const config = { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') } };
+    const respuesta = await api.get('/products', config); 
     productos.value = respuesta.data.data || respuesta.data; 
     
-    // Contar productos para las categorías
     categorias.value.forEach(cat => {
       cat.count = productos.value.filter(p => (p.categoria || p.category) === cat.nombre).length;
     });
@@ -319,7 +311,6 @@ const manejarSubidaImagen = (event) => {
   if (file) { archivoFisico.value = file; imagenPreview.value = URL.createObjectURL(file); }
 };
 
-// 🔥 AQUÍ CONFIGURAMOS TUS IMÁGENES EXACTAS 🔥
 const categorias = ref([
   { nombre: 'Aloe Vera', img: '/images/cat-aloe.png', icono: 'fas fa-leaf', count: 0 },
   { nombre: 'Nutrición', img: '/images/cat-nutricion.png', icono: 'fas fa-pills', count: 0 },
@@ -362,13 +353,15 @@ const guardarProducto = async () => {
 
   if (archivoFisico.value) { formData.append('image', archivoFisico.value); formData.append('imagen', archivoFisico.value); }
 
+  const config = { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') } };
+
   try {
     if (modoEdicion.value) {
       formData.append('_method', 'PUT'); 
-      await api.post(`/products/${form.value.id}`, formData); 
+      await api.post(`/products/${form.value.id}`, formData, config); 
       Swal.fire('Actualizado', 'Producto modificado.', 'success');
     } else {
-      await api.post('/products', formData); 
+      await api.post('/products', formData, config); 
       Swal.fire('Guardado', 'Nuevo producto creado.', 'success');
     }
     cerrarModal(); obtenerProductos(); 
@@ -384,7 +377,8 @@ const eliminarProducto = async (prod) => {
   }).then(async (result) => {
     if (result.isConfirmed) {
       try {
-        await api.delete(`/products/${prod.id || prod.sku || prod.code}`); 
+        const config = { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') } };
+        await api.delete(`/products/${prod.id || prod.sku || prod.code}`, config); 
         Swal.fire('¡Eliminado!', 'Producto a papelera.', 'success');
         obtenerProductos(); 
       } catch (error) { Swal.fire('Error', 'No se pudo eliminar', 'error'); }
