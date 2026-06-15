@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y \
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # 4. Instalar extensiones de PHP (Especialmente pdo_pgsql para tu base de datos)
-RUN docker-php-ext-install pdo pdo_pgsql mbstring exif pcntl bcmath gd
+RUN docker-php-ext-install pdo pdo_pgsql mbstring exif pcntl bcmath gd zip
 
 # 5. Encender el motor de rutas de Apache (Vital para Laravel)
 RUN a2enmod rewrite
