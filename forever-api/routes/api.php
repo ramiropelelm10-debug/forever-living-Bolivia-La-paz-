@@ -11,49 +11,42 @@ use App\Http\Controllers\Api\VentaController;
 use App\Http\Controllers\Api\ClienteController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\PaypalController;
-use LaravelWebauthn\Http\Controllers\WebauthnKeyController;
 
-// Define las rutas públicas principales que no requieren autenticación, facilitando el inicio de sesión tradicional y biométrico, así como el registro inicial.
+// Define las rutas públicas principales que no requieren autenticación, facilitando el inicio de sesión tradicional y el registro inicial.
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::post('/register-request', [AuthController::class, 'registerRequest']);
+
+// 🔥 LOGIN CON RECONOCIMIENTO FACIAL IA (Público, recibe el email y el descriptor de la cámara) 🔥
 Route::post('/login-faceid', [AuthController::class, 'loginFaceId']);
 
 // Expone el catálogo de productos para que cualquier visitante de la tienda pueda visualizar el inventario disponible.
 Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/{product}', [ProductController::class, 'show']);
 
-// Procesa las transacciones con la pasarela de pagos externa, permitiendo iniciar, confirmar o cancelar compras.
-Route::post('/paypal/create', [PaypalController::class, 'createPayment']);
+// 🔥 DEJAMOS PÚBLICAS SOLO LAS RUTAS DE RETORNO DE PAYPAL 🔥
+// (Porque cuando PayPal nos redirige, no manda el token de Vue)
 Route::get('/paypal/success', [PaypalController::class, 'capturePayment']);
 Route::get('/paypal/cancel', [PaypalController::class, 'cancelPayment']);
 
 // Agrupa las rutas protegidas del sistema, asegurando que solo los usuarios autenticados mediante Sanctum puedan acceder a ellas.
 Route::middleware('auth:sanctum')->group(function () {
 
+    // LA GRAN CORRECCIÓN: CREATE PAYMENT AHORA ESTÁ PROTEGIDO
+    // Ahora Laravel sí leerá el token y sabrá perfectamente quién está comprando.
+    Route::post('/paypal/create', [PaypalController::class, 'createPayment']);
+
     // Retorna la información personal completa del usuario que actualmente mantiene una sesión activa.
     Route::get('/user', function (Request $request) {
         return $request->user()->load('persona');
     });
 
-    // Administra los métodos de acceso seguro mediante huella o reconocimiento facial, permitiendo registrar dispositivos o solicitar tokens biométricos.
-    Route::post('/webauthn/keys/options', [WebauthnKeyController::class, 'create'])
-        ->middleware(\App\Http\Middleware\WebauthnEmailMiddleware::class);
-    
-    Route::post('/webauthn/keys', [AuthController::class, 'register']);
+    // 🔥 LA NUEVA RUTA ESTRATÉGICA: GUARDAR LOS 128 PUNTOS DEL ROSTRO CON IA 🔥
+    // Aquí es donde tu PerfilView.vue enviará el array de números extraídos por la cámara web.
+    Route::post('/user/save-face', [AuthController::class, 'saveFace']);
 
-    Route::post('/webauthn/get-token', function (Request $request) {
-        $user = $request->user();
-        return response()->json([
-            'token' => $user->createToken('biometric-login')->plainTextToken,
-            'user' => $user
-        ]);
-    });
-
-    // Facilita al usuario autenticado modificar ciertos aspectos de su perfil, como su foto o sus preferencias de ingreso biométrico.
+    // Facilita al usuario autenticado modificar ciertos aspectos de su perfil o sus preferencias de ingreso biométrico.
     Route::post('/user/toggle-biometrics', [AuthController::class, 'toggleBiometrics']);
-    
-    // 🔥 AQUÍ ESTÁ LA CORRECCIÓN CRÍTICA: '/user/update' en lugar de '/user/update-photo' 🔥
     Route::post('/user/update', [AuthController::class, 'updateProfile']);
 
     // Controla la papelera de reciclaje de los productos del inventario, haciendo posible ver y recuperar elementos eliminados previamente.

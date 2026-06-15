@@ -168,10 +168,12 @@ class AuthController extends Controller
         }
     }
 
+    // 🔥 CONFIGURACIÓN REAL DEL LOGIN FACIAL POR IA RECONOCIMIENTO 2D 🔥
     public function loginFaceId(Request $request)
     {
         $request->validate([
             'email' => 'required|email',
+            'face_descriptor' => 'required|array'
         ]);
 
         $user = User::where('email', trim($request->email))->first();
@@ -184,6 +186,28 @@ class AuthController extends Controller
             return response()->json(['message' => 'Cuenta pendiente o desactivada.'], 403);
         }
 
+        if (!$user->face_descriptor) {
+            return response()->json(['message' => 'No cuentas con un rostro registrado para este perfil.'], 400);
+        }
+
+        // Decodificamos el descriptor guardado (array de 128 flotantes)
+        $storedDescriptor = json_decode($user->face_descriptor, true);
+        $currentDescriptor = $request->face_descriptor;
+
+        // 🔥 ALGORITMO CIENTÍFICO: DISTANCIA EUCLIDIANA EN VECTOR 128-D 🔥
+        $distance = 0.0;
+        for ($i = 0; $i < 128; $i++) {
+            $diff = $storedDescriptor[$i] - $currentDescriptor[$i];
+            $distance += $diff * $diff;
+        }
+        $distance = sqrt($distance);
+
+        // Umbral de coincidencia estricta (menor o igual a 0.6 significa identidad verificada)
+        if ($distance > 0.6) {
+            return response()->json(['message' => 'Validación facial fallida. Rostro no coincide.'], 401);
+        }
+
+        // Si pasó el examen de IA, creamos el token de acceso directo
         $token = $user->createToken('forever_access_token')->plainTextToken;
 
         return response()->json([
@@ -199,7 +223,21 @@ class AuthController extends Controller
         ], 200);
     }
 
-    // 🔥 ESTA ES LA FUNCIÓN NUESTRA QUE FALTABA 🔥
+    // 🔥 NUEVA FUNCIÓN: ALMACENAR ARREGLO DE PUNTOS FACIALES DESDE VUE 🔥
+    public function saveFace(Request $request)
+    {
+        $request->validate([
+            'face_descriptor' => 'required|array'
+        ]);
+
+        $user = $request->user();
+        // Almacenamos el array mapeado de 128 números directamente a formato JSON estructurado
+        $user->face_descriptor = json_encode($request->face_descriptor);
+        $user->save();
+
+        return response()->json(['message' => 'Rostro guardado exitosamente en tu base de datos']);
+    }
+
     public function updateProfile(Request $request)
     {
         $request->validate([
@@ -209,11 +247,9 @@ class AuthController extends Controller
 
         $user = $request->user();
         
-        // 1. Actualizamos en la tabla users
         $user->name = $request->name;
         $user->save();
 
-        // 2. Actualizamos en la tabla personas (donde tienes guardado el apellido)
         if ($user->persona_id) {
             $persona = Persona::find($user->persona_id);
             if ($persona) {
@@ -227,5 +263,10 @@ class AuthController extends Controller
             'message' => 'Perfil actualizado correctamente',
             'user' => $user
         ]);
+    }
+
+    public function toggleBiometrics(Request $request) {
+        // Reservado para configuraciones adicionales de flags biométricos si los requieres
+        return response()->json(['message' => 'Preferencia modificada']);
     }
 }

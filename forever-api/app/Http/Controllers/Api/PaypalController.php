@@ -23,21 +23,27 @@ class PaypalController extends Controller
         $cc = $request->total_cc ?? 0; 
         $userId = $request->user() ? $request->user()->id : 1;
         
-        // 🔥 AHORA GUARDAMOS TODO: ITEMS, NIT Y RAZÓN SOCIAL EN LA CACHÉ 🔥
+        // 🔥 GUARDAMOS TODO EN CACHÉ 🔥
         $datosCompra = [
             'items'        => $request->items,
             'razon_social' => $request->razon_social ?? 'Cliente de PayPal',
-            'nit_ci'       => $request->nit_ci ?? '0'
+            'nit_ci'       => $request->nit_ci ?? '0',
+            'user_id'      => $userId, // Lo guardamos explícitamente
+            'total_cc'     => $cc
         ];
         
-        Cache::put('cart_' . $userId, $datosCompra, now()->addMinutes(30));
+        // Guardamos en caché por 30 minutos usando un token único generado por nosotros
+        $sessionToken = uniqid('cart_');
+        Cache::put($sessionToken, $datosCompra, now()->addMinutes(30));
+
+        // 🔥 PASAMOS NUESTRO TOKEN SEGURO POR LA URL DE RETORNO 🔥
+        $returnUrl = url("/api/paypal/success?st={$sessionToken}");
 
         $order = $provider->createOrder([
             "intent" => "CAPTURE",
             "purchase_units" => [
                 [
                     "reference_id" => "default",
-                    "custom_id" => $userId . '|' . $cc, 
                     "amount" => [
                         "currency_code" => "USD",
                         "value" => $monto
@@ -47,7 +53,7 @@ class PaypalController extends Controller
             ],
             "application_context" => [
                 "cancel_url" => url('/api/paypal/cancel'),
-                "return_url" => url('/api/paypal/success') 
+                "return_url" => $returnUrl // Usamos la nueva URL con el token
             ]
         ]);
 
@@ -65,34 +71,38 @@ class PaypalController extends Controller
         if (isset($response['status']) && $response['status'] == 'COMPLETED') {
             
             try {
-                $montoCobrado = $response['purchase_units'][0]['payments']['captures'][0]['amount']['value'] ?? 0;
-                $customId = $response['purchase_units'][0]['custom_id'] ?? '1|0';
-                $datosSecretos = explode('|', $customId);
-                $userId = $datosSecretos[0] ?? 1;
-                $cc = $datosSecretos[1] ?? 0;
+                // Recuperamos nuestro token de la URL
+                $sessionToken = $request->query('st');
 
-                // RECUPERAMOS LOS DATOS DE LA CACHÉ
-                $datosCompra = Cache::get('cart_' . $userId);
-                
-                $razonSocial = 'Pago verificado por PayPal';
-                $nitCi = '0';
-                $itemsCarrito = [];
-
-                if ($datosCompra) {
-                    $itemsCarrito = $datosCompra['items'] ?? [];
-                    $razonSocial  = $datosCompra['razon_social'] ?? 'Pago verificado por PayPal';
-                    $nitCi        = $datosCompra['nit_ci'] ?? '0';
+                // Si no hay token, fallamos de manera segura
+                if (!$sessionToken) {
+                    throw new \Exception("Token de sesión de carrito no proporcionado por PayPal.");
                 }
 
-                // 🔥 CREAMOS LA VENTA CON EL NOMBRE Y NIT REALES 🔥
+                // RECUPERAMOS LOS DATOS DE LA CACHÉ
+                $datosCompra = Cache::get($sessionToken);
+                
+                if (!$datosCompra) {
+                    throw new \Exception("Los datos de la compra expiraron o no existen en caché.");
+                }
+
+                $montoCobrado = $response['purchase_units'][0]['payments']['captures'][0]['amount']['value'] ?? 0;
+                
+                $userId = $datosCompra['user_id'];
+                $cc = $datosCompra['total_cc'];
+                $itemsCarrito = $datosCompra['items'] ?? [];
+                $razonSocial  = $datosCompra['razon_social'];
+                $nitCi        = $datosCompra['nit_ci'];
+
+                // 🔥 CREAMOS LA VENTA 🔥
                 $venta = Venta::create([
                     'nro_factura'  => 'FAC-PP-' . strtoupper(uniqid()),
                     'user_id'      => $userId,
-                    'nit_ci'       => $nitCi, 
+                    'nit_ci'       => (string)$nitCi, 
                     'razon_social' => $razonSocial,
-                    'monto_total'  => $montoCobrado, 
-                    'monto_iva'    => $montoCobrado * 0.13, 
-                    'total_cc'     => $cc,
+                    'monto_total'  => floatval($montoCobrado * 6.96), // Lo convertimos de USD a Bs de nuevo
+                    'monto_iva'    => floatval(($montoCobrado * 6.96) * 0.13), 
+                    'total_cc'     => floatval($cc),
                 ]);
 
                 if (!empty($itemsCarrito)) {
@@ -112,20 +122,20 @@ class PaypalController extends Controller
                             }
                         }
                     }
-                    Cache::forget('cart_' . $userId);
+                    Cache::forget($sessionToken); // Limpiamos la caché
                 }
 
                 return redirect('http://localhost:5173/pago-exitoso');
 
             } catch (\Exception $e) {
-                return response()->json([
-                    'ALERTA' => 'Falló al guardar en tu Base de Datos.',
-                    'EL_CULPABLE_ES' => $e->getMessage()
-                ]);
+                Log::error('🔥 ERROR PAYPAL 🔥: ' . $e->getMessage());
+                Log::error($e->getTraceAsString());
+                // Si falla la BD, mandamos al carrito pero con un mensaje en la URL para debuggear
+                return redirect('http://localhost:5173/carrito?error=db_fail');
             }
         }
 
-        return redirect('http://localhost:5173/carrito');
+        return redirect('http://localhost:5173/carrito?error=paypal_cancel');
     }
 
     public function cancelPayment()
