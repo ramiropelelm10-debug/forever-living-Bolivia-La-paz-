@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Artisan;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 
 Route::get('/', function () {
     return view('welcome');
@@ -22,18 +23,15 @@ Route::get('/instalar-bd', function () {
 // 🔥 LA NUEVA RUTA SECRETA PARA ASCENDER AL PRIMER ADMIN 🔥
 Route::get('/hacerme-admin', function () {
     try {
-        // Buscamos al primer usuario que acabas de registrar en la tienda
         $user = User::first();
         
         if ($user) {
-            // Le damos poderes máximos (ajusta el nombre de la columna si en tu BD se llama 'tipo_usuario')
             $user->role = 'admin'; 
             
-            // Si tienes un campo para aprobar cuentas, lo forzamos a true o 1
-            if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'is_active')) {
+            if (Schema::hasColumn('users', 'is_active')) {
                 $user->is_active = true; 
             }
-            if (\Illuminate\Support\Facades\Schema::hasColumn('users', 'status')) {
+            if (Schema::hasColumn('users', 'status')) {
                 $user->status = 'activo'; 
             }
 
@@ -57,4 +55,13 @@ Route::get('/reset-password/{email}/{nuevaPassword}', function ($email, $nuevaPa
     $user->password = Hash::make($nuevaPassword);
     $user->save();
     return "Contraseña actualizada con éxito para {$email}. Ahora intenta loguearte.";
+});
+
+// 🔥 RUTA DE DEBUG PARA VER QUIÉN VIVE EN LA BD 🔥
+Route::get('/quien-vive-aqui', function () {
+    $emails = User::pluck('email')->toArray();
+    if (empty($emails)) {
+        return "La base de datos está totalmente VACÍA. No hay usuarios registrados. Regístrate en la web primero.";
+    }
+    return "Usuarios registrados en la nube: " . implode(', ', $emails);
 });
