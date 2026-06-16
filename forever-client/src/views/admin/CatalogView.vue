@@ -275,28 +275,27 @@ import api from '../../api.js';
 const searchQuery = ref('');
 const selectedStatus = ref('Todos los estados');
 const selectedCategory = ref('');
-
 const mostrarModal = ref(false);
 const modoEdicion = ref(false);
 const imagenPreview = ref(null); 
 const archivoFisico = ref(null); 
-
 const form = ref({ id: null, nombre: '', sku: '', categoria: 'Aloe Vera', precio: null, stock: null, cc_value: null });
-
 const productos = ref([]); 
 const estaCargando = ref(true);
+
+// Añadimos el token a la cabecera en cada petición
+const getAuthHeaders = () => {
+  return { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') } };
+};
 
 const obtenerProductos = async () => {
   try {
     estaCargando.value = true;
-    const config = { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') } };
-    const respuesta = await api.get('/products', config); 
+    const respuesta = await api.get('/products', getAuthHeaders()); 
     productos.value = respuesta.data.data || respuesta.data; 
-    
     categorias.value.forEach(cat => {
       cat.count = productos.value.filter(p => (p.categoria || p.category) === cat.nombre).length;
     });
-
   } catch (error) {
     Swal.fire({ toast: true, position: 'top-end', icon: 'error', title: 'Error de conexión', showConfirmButton: false, timer: 3000 });
   } finally {
@@ -353,15 +352,13 @@ const guardarProducto = async () => {
 
   if (archivoFisico.value) { formData.append('image', archivoFisico.value); formData.append('imagen', archivoFisico.value); }
 
-  const config = { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') } };
-
   try {
     if (modoEdicion.value) {
       formData.append('_method', 'PUT'); 
-      await api.post(`/products/${form.value.id}`, formData, config); 
+      await api.post(`/products/${form.value.id}`, formData, getAuthHeaders()); 
       Swal.fire('Actualizado', 'Producto modificado.', 'success');
     } else {
-      await api.post('/products', formData, config); 
+      await api.post('/products', formData, getAuthHeaders()); 
       Swal.fire('Guardado', 'Nuevo producto creado.', 'success');
     }
     cerrarModal(); obtenerProductos(); 
@@ -377,8 +374,7 @@ const eliminarProducto = async (prod) => {
   }).then(async (result) => {
     if (result.isConfirmed) {
       try {
-        const config = { headers: { 'Authorization': 'Bearer ' + localStorage.getItem('auth_token') } };
-        await api.delete(`/products/${prod.id || prod.sku || prod.code}`, config); 
+        await api.delete(`/products/${prod.id || prod.sku || prod.code}`, getAuthHeaders()); 
         Swal.fire('¡Eliminado!', 'Producto a papelera.', 'success');
         obtenerProductos(); 
       } catch (error) { Swal.fire('Error', 'No se pudo eliminar', 'error'); }
