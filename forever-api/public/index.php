@@ -1,5 +1,16 @@
 <?php
 
+// 🔥 MODO DIOS PARA CORS: Forzamos la entrada del frontend 🔥
+header('Access-Control-Allow-Origin: https://forever-client-prod.onrender.com');
+header('Access-Control-Allow-Methods: POST, GET, OPTIONS, PUT, DELETE');
+header('Access-Control-Allow-Headers: Content-Type, X-Auth-Token, Origin, Authorization, X-Requested-With, Accept, X-CSRF-TOKEN');
+header('Access-Control-Allow-Credentials: true');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    header('HTTP/1.1 200 OK');
+    exit();
+}
+
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 
