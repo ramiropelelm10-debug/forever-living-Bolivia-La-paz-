@@ -2,7 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Artisan;
-use App\Models\User; // <-- IMPORTANTE: Traemos el modelo del Usuario
+use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 
 Route::get('/', function () {
     return view('welcome');
@@ -45,4 +46,15 @@ Route::get('/hacerme-admin', function () {
     } catch (\Exception $e) {
         return '🚨 ERROR AL ASCENDER ADMIN: ' . $e->getMessage();
     }
+});
+
+// 🔥 LA RUTA PARA CAMBIAR CONTRASEÑA EN CASO DE ERROR 🔥
+Route::get('/reset-password/{email}/{nuevaPassword}', function ($email, $nuevaPassword) {
+    $user = User::where('email', $email)->first();
+    if (!$user) {
+        return "El usuario {$email} no existe en la base de datos.";
+    }
+    $user->password = Hash::make($nuevaPassword);
+    $user->save();
+    return "Contraseña actualizada con éxito para {$email}. Ahora intenta loguearte.";
 });
