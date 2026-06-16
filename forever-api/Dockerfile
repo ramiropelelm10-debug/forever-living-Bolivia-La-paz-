@@ -39,6 +39,9 @@ COPY . .
 # 10. Instalar dependencias de Laravel
 RUN composer install --no-dev --optimize-autoloader
 
+# 10.5. Crear el enlace simbólico para las imágenes (LO QUE FALTABA)
+RUN php artisan storage:link
+
 # 11. Dar permisos para que Laravel pueda guardar fotos y reportes
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 RUN chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
