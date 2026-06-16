@@ -74,7 +74,8 @@
 import { ref, onMounted } from 'vue';
 import Swal from 'sweetalert2';
 
-const API_URL = 'http://localhost:8000/api';
+// 🔥 RUTA CORREGIDA: Apuntando a tu backend en la nube
+const API_URL = 'https://forever-api-e5zr.onrender.com/api';
 const solicitudes = ref([]);
 const isLoading = ref(true);
 
@@ -93,7 +94,6 @@ const getHeaders = () => {
 const cargarSolicitudes = async () => {
   isLoading.value = true;
   try {
-    // 🔥 RUTA ACTUALIZADA A LA VERSIÓN DE ADMIN
     const res = await fetch(`${API_URL}/admin/requests`, { headers: getHeaders() });
     const data = await res.json();
     if (res.ok) {
@@ -130,7 +130,6 @@ const aprobarSolicitud = (id, tipo) => {
   }).then(async (result) => {
     if (result.isConfirmed) {
       try {
-        // 🔥 RUTA ACTUALIZADA Y CUERPO (BODY) AGREGADO
         const res = await fetch(`${API_URL}/admin/users/${id}/respond`, { 
           method: 'POST', 
           headers: getHeaders(),
@@ -165,7 +164,6 @@ const rechazarSolicitud = (id) => {
   }).then(async (result) => {
     if (result.isConfirmed) {
       try {
-        // 🔥 RUTA ACTUALIZADA Y CUERPO (BODY) AGREGADO
         const res = await fetch(`${API_URL}/admin/users/${id}/respond`, { 
           method: 'POST', 
           headers: getHeaders(),
