@@ -90,3 +90,14 @@ Route::get('/ver-otp/{email}', function ($email) {
     }
     return "La columna 'otp_code' no existe en la tabla users.";
 });
+
+// 🔥 NUEVA RUTA DE RAYOS X: PARA LEER EL DIARIO SECRETO DE ERRORES (LOGS) 🔥
+Route::get('/ver-errores', function () {
+    $logPath = storage_path('logs/laravel.log');
+    if (!file_exists($logPath)) return 'No hay errores registrados aún.';
+    
+    $lines = file($logPath);
+    $lastLines = array_slice($lines, -50); // Trae las últimas 50 líneas
+    
+    return response('<pre style="background:#111;color:#0f0;padding:20px;font-size:14px;white-space:pre-wrap;line-height:1.5;">' . implode("", $lastLines) . '</pre>');
+});
