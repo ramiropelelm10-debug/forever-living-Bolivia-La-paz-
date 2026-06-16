@@ -13,8 +13,8 @@ Route::get('/', function () {
 // 🔥 LA RUTA SECRETA PARA INSTALAR LA BASE DE DATOS Y CORRER SEEDERS 🔥
 Route::get('/instalar-bd', function () {
     try {
-        Artisan::call('migrate', ['--force' => true]);
-        Artisan::call('db:seed', ['--force' => true]);
+        // Usamos migrate:fresh para garantizar una instalación limpia en la nube
+        Artisan::call('migrate:fresh', ['--force' => true, '--seed' => true]);
         return '¡Base de datos creada y seeders ejecutados con éxito, ingeniero!';
     } catch (\Exception $e) {
         return '🚨 ERROR REAL DE LARAVEL: ' . $e->getMessage();
