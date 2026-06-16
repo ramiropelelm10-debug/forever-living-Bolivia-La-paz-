@@ -19,7 +19,10 @@ class PaypalController extends Controller
         $provider->setApiCredentials(config('paypal'));
         $provider->getAccessToken();
         
-        $monto = $request->monto_total ?? 10.00; 
+        // 🔥 AÑADIDO: Convertimos el monto de Bolivianos (Bs) a Dólares (USD) antes de mandarlo a PayPal
+        $montoBs = $request->monto_total ?? 10.00; 
+        $monto = round($montoBs / 6.96, 2); 
+        
         $cc = $request->total_cc ?? 0; 
         $userId = $request->user() ? $request->user()->id : 1;
         
@@ -125,21 +128,25 @@ class PaypalController extends Controller
                     Cache::forget($sessionToken); // Limpiamos la caché
                 }
 
-                return redirect('http://localhost:5173/pago-exitoso');
+                // 🔥 AÑADIDO: Redirección dinámica usando la URL del .env
+                return redirect(env('FRONTEND_URL', 'http://localhost:5173') . '/pago-exitoso');
 
             } catch (\Exception $e) {
                 Log::error('🔥 ERROR PAYPAL 🔥: ' . $e->getMessage());
                 Log::error($e->getTraceAsString());
-                // Si falla la BD, mandamos al carrito pero con un mensaje en la URL para debuggear
-                return redirect('http://localhost:5173/carrito?error=db_fail');
+                
+                // 🔥 AÑADIDO: Redirección dinámica usando la URL del .env en caso de error
+                return redirect(env('FRONTEND_URL', 'http://localhost:5173') . '/carrito?error=db_fail');
             }
         }
 
-        return redirect('http://localhost:5173/carrito?error=paypal_cancel');
+        // 🔥 AÑADIDO: Redirección dinámica usando la URL del .env si se cancela en la captura
+        return redirect(env('FRONTEND_URL', 'http://localhost:5173') . '/carrito?error=paypal_cancel');
     }
 
     public function cancelPayment()
     {
-        return redirect('http://localhost:5173/carrito');
+        // 🔥 AÑADIDO: Redirección dinámica usando la URL del .env al cancelar
+        return redirect(env('FRONTEND_URL', 'http://localhost:5173') . '/carrito');
     }
 }
