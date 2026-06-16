@@ -10,11 +10,12 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-// 🔥 LA RUTA SECRETA PARA INSTALAR LA BASE DE DATOS 🔥
+// 🔥 LA RUTA SECRETA PARA INSTALAR LA BASE DE DATOS Y CORRER SEEDERS 🔥
 Route::get('/instalar-bd', function () {
     try {
         Artisan::call('migrate', ['--force' => true]);
-        return '¡Base de datos creada con éxito, ingeniero!';
+        Artisan::call('db:seed', ['--force' => true]);
+        return '¡Base de datos creada y seeders ejecutados con éxito, ingeniero!';
     } catch (\Exception $e) {
         return '🚨 ERROR REAL DE LARAVEL: ' . $e->getMessage();
     }
