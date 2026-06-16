@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Artisan;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 Route::get('/', function () {
     return view('welcome');
@@ -47,6 +48,19 @@ Route::get('/hacerme-admin', function () {
     }
 });
 
+// 🔥 RUTA PARA ASCENDER UN USUARIO ESPECÍFICO A ADMIN 🔥
+Route::get('/ascender-usuario/{email}', function ($email) {
+    $user = User::where('email', $email)->first();
+    if (!$user) return "Usuario {$email} no encontrado.";
+    
+    $user->role = 'admin'; 
+    if (Schema::hasColumn('users', 'is_active')) $user->is_active = true;
+    if (Schema::hasColumn('users', 'status')) $user->status = 'activo';
+    $user->save();
+    
+    return "¡Felicidades, {$user->email}! Ahora eres Admin.";
+});
+
 // 🔥 LA RUTA PARA CAMBIAR CONTRASEÑA EN CASO DE ERROR 🔥
 Route::get('/reset-password/{email}/{nuevaPassword}', function ($email, $nuevaPassword) {
     $user = User::where('email', $email)->first();
@@ -65,4 +79,17 @@ Route::get('/quien-vive-aqui', function () {
         return "La base de datos está totalmente VACÍA. No hay usuarios registrados. Regístrate en la web primero.";
     }
     return "Usuarios registrados en la nube: " . implode(', ', $emails);
+});
+
+// 🔥 RUTA PARA VER EL OTP ACTIVO 🔥
+Route::get('/ver-otp/{email}', function ($email) {
+    try {
+        $otpRecord = DB::table('otps')->where('email', $email)->latest()->first();
+        if (!$otpRecord) {
+            return "No hay OTP generado para {$email} en este momento. Intenta solicitarlo de nuevo en el login.";
+        }
+        return "El OTP actual para {$email} es: " . $otpRecord->code;
+    } catch (\Exception $e) {
+        return "Error al buscar el OTP: " . $e->getMessage();
+    }
 });
