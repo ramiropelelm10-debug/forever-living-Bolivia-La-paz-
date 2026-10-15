@@ -27,15 +27,16 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Si Authenticate::class te da error rojo, usa la ruta completa o bórralo, 
         // ya que Laravel 11 lo maneja internamente.
-               $middleware->alias([
+        $middleware->alias([
             'auth' => \Illuminate\Auth\Middleware\Authenticate::class,
             'admin' => \App\Http\Middleware\AdminOnly::class,
+            'staff' => \App\Http\Middleware\StaffOnly::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         
         // 4. Asegura que los errores siempre respondan en formato JSON
-        // Así Vue pusede leer los mensajes de error correctamente
+        // Así Vue puede leer los mensajes de error correctamente
         $exceptions->shouldRenderJsonWhen(function (Request $request, Throwable $e) {
             if ($request->is('api/*')) {
                 return true;

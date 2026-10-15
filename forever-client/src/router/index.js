@@ -24,6 +24,14 @@ import FboAdminView from '../views/admin/FboAdminView.vue'
 import ProfileView from '../views/admin/ProfileView.vue'
 import RequestsView from '../views/admin/RequestsView.vue'
 import UsersView from '../views/admin/UsersView.vue'
+import BackupsView from '../views/admin/BackupsView.vue'
+import FaceIdView from '../views/admin/FaceIdView.vue'
+// 📄 NUEVO: Importamos la vista de Facturas
+import InvoicesView from '../views/admin/InvoicesView.vue'
+// 🏆 NUEVO: Importamos la vista de Ranking de FBOs
+import FboRankingsView from '../views/admin/FboRankingsView.vue'
+// 🛡️ NUEVO: Importamos la vista de Logs de Auditoría
+import LogsView from '../views/admin/LogsView.vue'
 
 const routes = [
   // ----------------------------------------------------
@@ -71,7 +79,15 @@ const routes = [
       { path: 'fbo', name: 'admin-fbo', component: FboAdminView }, 
       { path: 'perfil', name: 'admin-perfil', component: ProfileView },
       { path: 'solicitudes', name: 'admin-solicitudes', component: RequestsView },
-      { path: 'usuarios', name: 'admin-usuarios', component: UsersView }
+      { path: 'usuarios', name: 'admin-usuarios', component: UsersView },
+      { path: 'respaldos', name: 'admin-respaldos', component: BackupsView },
+      { path: 'face-id', name: 'admin-faceid', component: FaceIdView },
+      // 📄 NUEVA RUTA DE FACTURAS
+      { path: 'facturas', name: 'admin-facturas', component: InvoicesView },
+      // 🏆 NUEVA RUTA DE RANKING FBO
+      { path: 'rankings', name: 'admin-rankings', component: FboRankingsView },
+      // 🛡️ NUEVA RUTA DE LOGS
+      { path: 'logs', name: 'admin-logs', component: LogsView }
     ]
   }
 ]

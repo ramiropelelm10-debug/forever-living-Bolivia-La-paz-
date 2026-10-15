@@ -35,7 +35,13 @@
           <router-link v-if="userType === 'admin'" to="/admin/solicitudes" class="nav-link flex items-center" active-class="nav-link-active">
             <div class="w-8 flex justify-center"><i class="fas fa-clipboard-list"></i></div>
             <span class="ml-2 text-xs font-bold tracking-wide">Solicitudes</span>
-<span class="ml-auto bg-[#FFC600] text-[#092615] text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">0</span>          </router-link>
+            <span class="ml-auto bg-[#FFC600] text-[#092615] text-[10px] font-black px-2 py-0.5 rounded-full shadow-sm">0</span>
+          </router-link>
+
+          <router-link v-if="userType === 'admin'" to="/admin/facturas" class="nav-link" active-class="nav-link-active">
+            <div class="w-8 flex justify-center"><i class="fas fa-file-invoice-dollar"></i></div>
+            <span class="ml-2 text-xs font-bold tracking-wide">Facturas</span>
+          </router-link>
 
           <router-link v-if="userType === 'admin'" to="/admin/usuarios" class="nav-link" active-class="nav-link-active">
             <div class="w-8 flex justify-center"><i class="fas fa-user-cog"></i></div>
@@ -45,6 +51,29 @@
           <router-link v-if="userType === 'admin'" to="/admin/fbo" class="nav-link" active-class="nav-link-active">
             <div class="w-8 flex justify-center"><i class="fas fa-id-badge"></i></div>
             <span class="ml-2 text-xs font-bold tracking-wide">Admin FBO</span>
+          </router-link>
+
+          <router-link v-if="userType === 'admin'" to="/admin/rankings" class="nav-link" active-class="nav-link-active">
+            <div class="w-8 flex justify-center"><i class="fas fa-trophy"></i></div>
+            <span class="ml-2 text-xs font-bold tracking-wide">Ranking FBO</span>
+          </router-link>
+
+          <!-- 🔥 BOTÓN DE LOGS DE AUDITORÍA AGREGADO AQUÍ -->
+          <router-link v-if="userType === 'admin'" to="/admin/logs" class="nav-link" active-class="nav-link-active">
+            <div class="w-8 flex justify-center"><i class="fas fa-shield-alt"></i></div>
+            <span class="ml-2 text-xs font-bold tracking-wide">Logs del Sistema</span>
+          </router-link>
+
+          <!-- 💾 RESPALDOS DE LA BASE DE DATOS -->
+          <router-link v-if="userType === 'admin'" to="/admin/respaldos" class="nav-link" active-class="nav-link-active">
+            <div class="w-8 flex justify-center"><i class="fas fa-database"></i></div>
+            <span class="ml-2 text-xs font-bold tracking-wide">Respaldos</span>
+          </router-link>
+
+          <!-- 🙂 FACE ID (lo ven admin e inventario) -->
+          <router-link to="/admin/face-id" class="nav-link" active-class="nav-link-active">
+            <div class="w-8 flex justify-center"><i class="fas fa-user-shield"></i></div>
+            <span class="ml-2 text-xs font-bold tracking-wide">Face ID</span>
           </router-link>
 
         </nav>

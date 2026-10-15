@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Venta;
 use App\Models\ItemDeVenta;
 use App\Models\Product;
+use App\Services\CarritoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth; 
@@ -46,17 +47,17 @@ class VentaController extends Controller
 
     /**
      * REGISTRO AVANZADO (Facturación oficial)
+     * El total y los puntos CC se calculan aquí con los precios reales de la base de datos.
+     * Lo que mande el navegador (monto_total, total_cc, precios) se ignora.
      */
-    public function store(Request $request)
+    public function store(Request $request, CarritoService $carrito)
     {
         $validator = Validator::make($request->all(), [
-            'nit_ci'         => 'nullable|string',
-            'razon_social'   => 'nullable|string',
-            'items'          => 'required|array|min:1',
-            'items.*.id'     => 'required|exists:products,id',
+            'nit_ci'           => 'nullable|string',
+            'razon_social'     => 'nullable|string',
+            'items'            => 'required|array|min:1',
+            'items.*.id'       => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
-            'monto_total'    => 'required|numeric',
-            'total_cc'       => 'required|numeric',
         ]);
 
         if ($validator->fails()) {
@@ -67,34 +68,33 @@ class VentaController extends Controller
         }
 
         try {
-            return DB::transaction(function () use ($request) {
-                
+            return DB::transaction(function () use ($request, $carrito) {
+
+                $usuario = $request->user();
+
+                // Calcula con precios reales y bloquea el stock mientras dura la transacción
+                $calculo = $carrito->calcular($request->items, $usuario, true);
+
                 $venta = Venta::create([
                     'nro_factura'  => 'FAC-' . strtoupper(uniqid()), 
-                    'user_id'      => Auth::id() ?? 1, 
+                    'user_id'      => $usuario->id, 
                     'nit_ci'       => $request->nit_ci,
                     'razon_social' => $request->razon_social,
-                    'monto_total'  => $request->monto_total,
-                    'monto_iva'    => $request->monto_total * 0.13, 
-                    'total_cc'     => $request->total_cc,
+                    'monto_total'  => $calculo['total_bs'],
+                    'monto_iva'    => $calculo['total_bs'] * 0.13, 
+                    'total_cc'     => $calculo['total_cc'],
                 ]);
 
-                foreach ($request->items as $item) {
-                    $producto = Product::findOrFail($item['id']);
-
-                    if ($producto->stock < $item['quantity']) {
-                        throw new Exception("Stock insuficiente para el producto: " . $producto->name);
-                    }
-
+                foreach ($calculo['lineas'] as $linea) {
                     ItemDeVenta::create([
                         'venta_id'        => $venta->id,
-                        'product_id'      => $producto->id,
-                        'cantidad'        => $item['quantity'],
-                        'precio_unitario' => $producto->price_bs,
-                        'subtotal'        => $item['quantity'] * $producto->price_bs,
+                        'product_id'      => $linea['producto']->id,
+                        'cantidad'        => $linea['cantidad'],
+                        'precio_unitario' => $linea['precio_unitario'],
+                        'subtotal'        => $linea['subtotal'],
                     ]);
 
-                    $producto->decrement('stock', $item['quantity']);
+                    $linea['producto']->decrement('stock', $linea['cantidad']);
                 }
 
                 return response()->json([
@@ -129,11 +129,18 @@ class VentaController extends Controller
 
     /**
      * GENERAR PDF DE LA VENTA
+     * Solo puede descargarlo el dueño de la venta o un administrador.
      */
-    public function generarPdf($id)
+    public function generarPdf(Request $request, $id)
     {
         try {
             $venta = Venta::with(['items.producto'])->findOrFail($id);
+
+            $usuario = $request->user();
+            if ($usuario->role !== 'admin' && (int) $venta->user_id !== (int) $usuario->id) {
+                return response()->json(['message' => 'No tienes permiso para ver esta factura.'], 403);
+            }
+
             $pdf = Pdf::loadView('pdf.factura', compact('venta'));
             return $pdf->download("Factura_{$venta->nro_factura}.pdf");
         } catch (Exception $e) {

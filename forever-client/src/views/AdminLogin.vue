@@ -73,7 +73,7 @@
       <p class="text-slate-400 text-xs mb-8">La IA analizará tus rasgos para confirmar tu identidad.</p>
       
       <div class="relative w-64 h-64 rounded-full overflow-hidden border-4 border-[#FFC600] shadow-[0_0_50px_rgba(255,198,0,0.5)] mb-8">
-        <video ref="videoScannerRef" autoplay playsinline class="w-full h-full object-cover transform scale-x-[-1]"></video>
+        <video ref="videoScannerRef" autoplay muted playsinline class="w-full h-full object-cover transform scale-x-[-1]"></video>
         <div v-if="analizando" class="absolute inset-0 bg-gradient-to-b from-transparent via-[#FFC600]/40 to-transparent w-full h-1/2 animate-[scan_2s_ease-in-out_infinite]"></div>
       </div>
 
@@ -92,11 +92,11 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import Swal from 'sweetalert2';
-// 🔥 IMPORTAMOS LA INTELIGENCIA ARTIFICIAL EN EL LOGIN
-import * as faceapi from 'face-api.js';
+// 🔥 IA FACIAL: carga de modelos, cámara y extracción de rasgos
+import { cargarModelos, iniciarCamara, detenerCamara, obtenerDescriptor } from '../composables/faceIdService.js';
 
 const router = useRouter();
 const email = ref('');
@@ -119,27 +119,18 @@ const abrirScanner = async () => {
     return Swal.fire('Atención', 'Por favor, escribe tu correo de administrador antes de usar la Biometría.', 'warning');
   }
 
-  const descriptorGuardadoStr = localStorage.getItem('biometria_descriptor');
-  const activoFaceId = localStorage.getItem('faceid_activo') === 'true';
-
-  if (!descriptorGuardadoStr || !activoFaceId) {
-    return Swal.fire('Face ID Inactivo', 'Debes registrar tus datos faciales y activar el Face ID en tu panel de Perfil Administrativo primero.', 'warning');
-  }
-
   Swal.fire({ title: 'Iniciando Seguridad...', text: 'Cargando modelos neuronales', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
   try {
-    await faceapi.nets.ssdMobilenetv1.loadFromUri('/models');
-    await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
-    await faceapi.nets.faceRecognitionNet.loadFromUri('/models');
+    await cargarModelos();
     Swal.close();
   } catch (e) {
     return Swal.fire('Error de IA', 'No se pudieron cargar los modelos de reconocimiento.', 'error');
   }
 
   mostrandoScanner.value = true;
+  await nextTick();
   try {
-    scannerStream.value = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-    if (videoScannerRef.value) videoScannerRef.value.srcObject = scannerStream.value;
+    scannerStream.value = await iniciarCamara(videoScannerRef.value);
   } catch (e) {
     mostrandoScanner.value = false;
     Swal.fire('Error', 'No se pudo acceder a la cámara.', 'error');
@@ -148,54 +139,45 @@ const abrirScanner = async () => {
 
 const escanearRostroIA = async () => {
   analizando.value = true;
-  
+
   try {
-    const deteccionEnVivo = await faceapi.detectSingleFace(videoScannerRef.value).withFaceLandmarks().withFaceDescriptor();
-    
-    if (!deteccionEnVivo) {
+    // 1. Sacamos los rasgos del rostro en vivo (128 números)
+    const descriptor = await obtenerDescriptor(videoScannerRef.value);
+
+    if (!descriptor) {
       analizando.value = false;
       return Swal.fire('Rostro no detectado', 'Ubícate bien frente a la cámara y asegúrate de tener buena luz.', 'warning');
     }
 
-    const arrayGuardado = JSON.parse(localStorage.getItem('biometria_descriptor'));
-    const descriptorGuardado = new Float32Array(arrayGuardado); 
-    
-    const distancia = faceapi.euclideanDistance(deteccionEnVivo.descriptor, descriptorGuardado);
-    console.log("📏 Distancia matemática entre rostros (menor a 0.50 es match):", distancia);
+    // 2. El SERVIDOR compara contra el rostro registrado y decide
+    const res = await fetch(`${API_URL}/login-faceid`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ email: email.value, descriptor })
+    });
+    const data = await res.json();
 
-    if (distancia <= 0.50) {
-      const res = await fetch(`${API_URL}/login-faceid`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ email: email.value }) 
-      });
-      
-      const data = await res.json();
-      
-      if (res.ok) {
-        cancelarScanner();
-        Swal.fire({ title: 'Identidad Confirmada', text: '¡Bienvenido al sistema!', icon: 'success', timer: 1500, showConfirmButton: false });
-        
-        // 🔐 CORRECCIÓN: Prioridad a "role" sobre "tipo_usuario"
-        const userType = data.user?.role || data.user?.tipo_usuario || 'admin';
-        
-        if (userType !== 'admin' && userType !== 'inventario') {
-            return Swal.fire('Denegado', 'Solo admins o personal de inventario.', 'error');
-        }
-
-        localStorage.setItem('auth_token', data.token);
-        localStorage.setItem('userType', userType);
-        
-        router.push('/admin/catalogo');
-      } else {
-        analizando.value = false;
-        Swal.fire('Error del Servidor', data.message || 'El Face ID funcionó, pero Laravel rechazó el acceso.', 'error');
-      }
-
-    } else {
+    if (!res.ok) {
       analizando.value = false;
-      Swal.fire({ title: '¡ACCESO DENEGADO!', text: 'El rostro no coincide con el registrado. Intento bloqueado.', icon: 'error' });
+      const msg = res.status === 429
+        ? 'Demasiados intentos. Espera un minuto.'
+        : (data.message || 'No se pudo verificar tu identidad. Si no registraste tu Face ID, entra con contraseña.');
+      return Swal.fire({ title: '¡ACCESO DENEGADO!', text: msg, icon: 'error' });
     }
+
+    // 🔐 CORRECCIÓN: Prioridad a "role" sobre "tipo_usuario"
+    const userType = data.user?.role || data.user?.tipo_usuario || 'admin';
+
+    if (userType !== 'admin' && userType !== 'inventario') {
+      analizando.value = false;
+      return Swal.fire('Denegado', 'Solo admins o personal de inventario.', 'error');
+    }
+
+    cancelarScanner();
+    localStorage.setItem('auth_token', data.token);
+    localStorage.setItem('userType', userType);
+    Swal.fire({ title: 'Identidad Confirmada', text: '¡Bienvenido al sistema!', icon: 'success', timer: 1500, showConfirmButton: false });
+    router.push('/admin/catalogo');
 
   } catch (error) {
     analizando.value = false;
@@ -206,7 +188,8 @@ const escanearRostroIA = async () => {
 const cancelarScanner = () => {
   mostrandoScanner.value = false;
   analizando.value = false;
-  if (scannerStream.value) scannerStream.value.getTracks().forEach(t => t.stop());
+  detenerCamara(scannerStream.value);
+  scannerStream.value = null;
 }
 
 // ==========================================

@@ -7,6 +7,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use App\Models\User;
 use App\Models\Persona;
 use Exception;
@@ -53,7 +56,8 @@ class AuthController extends Controller
             ]);
         }
 
-        $otp = (string) rand(100000, 999999);
+        // 🔐 Código aleatorio criptográficamente seguro
+        $otp = (string) random_int(100000, 999999);
         
         DB::table('users')->where('id', $user->id)->update([
             'otp_code' => $otp,
@@ -61,12 +65,30 @@ class AuthController extends Controller
             'updated_at' => now()
         ]);
 
+        // Con un código nuevo, se reinicia el contador de intentos fallidos
+        RateLimiter::clear('otp:' . Str::lower($user->email));
+
+        // 📧 Enviamos el código al correo del usuario (ya no viaja en la respuesta)
+        try {
+            Mail::raw(
+                "Tu código de verificación de Forever Bolivia es: {$otp}\n\n" .
+                "Vence en 15 minutos. Si no fuiste tú, ignora este mensaje.",
+                function ($mensaje) use ($user) {
+                    $mensaje->to($user->email)->subject('Código de verificación - Forever Bolivia');
+                }
+            );
+        } catch (\Throwable $e) {
+            Log::error('No se pudo enviar el código OTP: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'No se pudo enviar el código al correo. Intenta de nuevo en un momento.'
+            ], 500);
+        }
+
         return response()->json([
             'message' => 'Código enviado correctamente',
             'requires_otp' => true,
             'email' => $user->email,
-            'role' => $user->role,
-            'code_debug' => $otp 
+            'role' => $user->role
         ]);
     }
 
@@ -80,15 +102,28 @@ class AuthController extends Controller
             ]);
 
             $now = Carbon::now('America/La_Paz');
+            $email = trim($request->email);
 
-            $user = User::where('email', trim($request->email))
+            // 🔐 Máximo 5 códigos fallidos por correo: al llegar a 5 se anula el código vigente
+            $claveIntentos = 'otp:' . Str::lower($email);
+            if (RateLimiter::tooManyAttempts($claveIntentos, 5)) {
+                DB::table('users')->where('email', $email)->update(['otp_code' => null]);
+                return response()->json([
+                    'message' => 'Demasiados intentos fallidos. Vuelve a iniciar sesión para recibir un código nuevo.'
+                ], 429);
+            }
+
+            $user = User::where('email', $email)
                         ->where('otp_code', trim($request->code))
                         ->where('otp_expires_at', '>', $now)
                         ->first();
 
             if (!$user) {
+                RateLimiter::hit($claveIntentos, 900);
                 return response()->json(['message' => 'Código incorrecto o expirado'], 401);
             }
+
+            RateLimiter::clear($claveIntentos);
 
             $token = $user->createToken('forever_access_token')->plainTextToken;
             

@@ -1,7 +1,15 @@
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 
-export const cart = ref([]);
+// 1. CARGAMOS EL CARRITO DESDE EL DISCO DURO (Si existe)
+const storedCart = localStorage.getItem('forever_cart');
+export const cart = ref(storedCart ? JSON.parse(storedCart) : []);
 
+// 2. MAGIA: CADA VEZ QUE 'cart' CAMBIA, SE GUARDA SOLO EN LOCALSTORAGE
+watch(cart, (newCart) => {
+  localStorage.setItem('forever_cart', JSON.stringify(newCart));
+}, { deep: true });
+
+// AGREGAR AL CARRITO
 export const addToCart = (product, discount = 0) => {
   const existingItem = cart.value.find(item => item.id === product.id);
   // 🔥 Calculamos el precio con el descuento aplicado
@@ -19,23 +27,40 @@ export const addToCart = (product, discount = 0) => {
   }
 };
 
+// ACTUALIZAR CANTIDAD (Para el botón + y -)
+export const updateQuantity = (productId, change) => {
+  const item = cart.value.find(i => i.id === productId);
+  if (item) {
+    const newQty = item.quantity + change;
+    if (newQty > 0) {
+      item.quantity = newQty;
+    }
+  }
+};
+
+// QUITAR UN PRODUCTO ENTERO
 export const removeFromCart = (productId) => {
   cart.value = cart.value.filter(item => item.id !== productId);
 };
 
+// VACIAR TODO EL CARRITO
 export const clearCart = () => {
   cart.value = [];
 };
 
-// 🔥 Ahora sumamos usando el 'precio_final'
+// 🔥 SUMAS MÁGICAS (COMPUTADOS)
+
+// Total en Bolivianos (Usando el precio final con descuento)
 export const cartTotal = computed(() => {
   return cart.value.reduce((total, item) => total + (item.precio_final * item.quantity), 0);
 });
 
+// Total en CC (Puntos Forever)
 export const cartTotalCC = computed(() => {
-  return cart.value.reduce((total, item) => total + (item.cc_value * item.quantity), 0);
+  return cart.value.reduce((total, item) => total + (parseFloat(item.cc_value) * item.quantity), 0);
 });
 
+// Contador de globitos para el Navbar
 export const cartItemCount = computed(() => {
   return cart.value.reduce((count, item) => count + item.quantity, 0);
 });
