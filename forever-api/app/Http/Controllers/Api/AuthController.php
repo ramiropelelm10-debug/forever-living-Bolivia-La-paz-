@@ -168,37 +168,6 @@ class AuthController extends Controller
         }
     }
 
-    public function loginFaceId(Request $request)
-    {
-        $request->validate([
-            'email' => 'required|email',
-        ]);
-
-        $user = User::where('email', trim($request->email))->first();
-
-        if (!$user) {
-            return response()->json(['message' => 'Usuario no encontrado.'], 404);
-        }
-
-        if ($user->status !== 'activo') {
-            return response()->json(['message' => 'Cuenta pendiente o desactivada.'], 403);
-        }
-
-        $token = $user->createToken('forever_access_token')->plainTextToken;
-
-        return response()->json([
-            'message' => 'Login biométrico exitoso',
-            'token' => $token,
-            'user'  => [
-                'id'           => $user->id,
-                'name'         => $user->name,
-                'email'        => $user->email,
-                'role'         => $user->role,
-                'tipo_usuario' => $user->tipo_usuario,
-            ]
-        ], 200);
-    }
-
     // 🔥 ESTA ES LA FUNCIÓN NUESTRA QUE FALTABA 🔥
     public function updateProfile(Request $request)
     {

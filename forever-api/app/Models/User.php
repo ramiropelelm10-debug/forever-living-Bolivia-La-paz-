@@ -15,6 +15,7 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable;
 
     protected $fillable = [
+        'sponsor_id', // 🔥 AÑADIDO PARA PERMITIR ASIGNACIÓN MASIVA
         'persona_id',
         'name',
         'email',
@@ -67,5 +68,21 @@ class User extends Authenticatable
     public function ventas(): HasMany
     {
         return $this->hasMany(Venta::class);
+    }
+
+    /**
+     * Obtiene el patrocinador de este usuario (Quién lo invitó)
+     */
+    public function sponsor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'sponsor_id');
+    }
+
+    /**
+     * Obtiene los distribuidores debajo de este usuario (A quiénes invitó)
+     */
+    public function downlines(): HasMany
+    {
+        return $this->hasMany(User::class, 'sponsor_id');
     }
 }

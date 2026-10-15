@@ -11,7 +11,15 @@ use App\Http\Controllers\Api\VentaController;
 use App\Http\Controllers\Api\ClienteController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\PaypalController;
-use App\Http\Controllers\Api\InvoiceController; // 🔥 NUEVA IMPORTACIÓN: Controlador de Facturas
+use App\Http\Controllers\Api\InvoiceController;
+use App\Http\Controllers\Api\BackupController;
+use App\Http\Controllers\Api\FaceIdController;
+
+// 🔥 NUEVA IMPORTACIÓN: Controlador de Ranking/Red para FBOs 🔥
+use App\Http\Controllers\Admin\FboNetworkController;
+
+// 🔥 NUEVA IMPORTACIÓN: Controlador de Logs de Auditoría 🔥
+use App\Http\Controllers\SystemLogController;
 
 // Define las rutas públicas principales que no requieren autenticación, facilitando el inicio de sesión tradicional y el registro inicial.
 Route::post('/login', [AuthController::class, 'login']);
@@ -19,7 +27,8 @@ Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::post('/register-request', [AuthController::class, 'registerRequest']);
 
 // 🔥 LOGIN CON RECONOCIMIENTO FACIAL IA (Público, recibe el email y el descriptor de la cámara) 🔥
-Route::post('/login-faceid', [AuthController::class, 'loginFaceId']);
+// Ahora el servidor compara el rostro contra el registrado. Máximo 6 intentos por minuto.
+Route::post('/login-faceid', [FaceIdController::class, 'login'])->middleware('throttle:6,1');
 
 // Expone el catálogo de productos para que cualquier visitante de la tienda pueda visualizar el inventario disponible.
 Route::get('/products', [ProductController::class, 'index']);
@@ -49,6 +58,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // Facilita al usuario autenticado modificar ciertos aspectos de su perfil o sus preferencias de ingreso biométrico.
     Route::post('/user/toggle-biometrics', [AuthController::class, 'toggleBiometrics']);
     Route::post('/user/update', [AuthController::class, 'updateProfile']);
+
+    // Face ID: registrar, consultar y quitar el rostro del usuario logueado (el login está arriba, público).
+    Route::get('/face-id/status', [FaceIdController::class, 'status']);
+    Route::post('/face-id/register', [FaceIdController::class, 'register']);
+    Route::delete('/face-id', [FaceIdController::class, 'destroy']);
 
     // Controla la papelera de reciclaje de los productos del inventario, haciendo posible ver y recuperar elementos eliminados previamente.
     Route::get('/trash/products', [ProductController::class, 'trash']);
@@ -81,6 +95,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/users', [AdminController::class, 'allUsers']);
         Route::post('/users/{id}/toggle-status', [AdminController::class, 'toggleStatus']);
         Route::post('/users/{id}/promote', [AdminController::class, 'promote']);
+
+        // 🔥 NUEVA RUTA PARA EL RANKING DE FBOs Y PUNTOS CC 🔥
+        Route::get('/fbo-rankings', [FboNetworkController::class, 'getFboRankings']);
+
+        // 🔥 NUEVA RUTA PARA LOS LOGS DE AUDITORÍA 🔥
+        Route::get('/logs', [SystemLogController::class, 'index']);
+    });
+
+    // Respaldos de la base de datos: automático semanal (scheduler) y manual desde el panel. Solo rol admin.
+    Route::middleware('admin')->prefix('admin/backups')->group(function () {
+        Route::get('/', [BackupController::class, 'index']);
+        Route::post('/', [BackupController::class, 'store']);
+        Route::get('/{id}/download', [BackupController::class, 'download']);
+        Route::delete('/{id}', [BackupController::class, 'destroy']);
     });
 
     // Cierra la sesión de forma segura y revoca los tokens de acceso del usuario actual.
